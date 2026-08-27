@@ -4,6 +4,7 @@ import { Footer } from '@/components/layout/Footer';
 import { SiteNav } from '@/components/layout/SiteNav';
 import { ContactCta } from '@/components/sections/ContactCta';
 import { Hero } from '@/components/sections/Hero';
+import { Minigame } from '@/components/sections/Minigame';
 import { Rules } from '@/components/sections/Rules';
 import { Schedule } from '@/components/sections/Schedule';
 import { Sponsors } from '@/components/sections/Sponsors';
@@ -20,6 +21,7 @@ export default function Home() {
       <main>
         <Hero />
         <TournamentInfo />
+        <Minigame />
         <Sponsors />
         <Standings />
         <Schedule />
