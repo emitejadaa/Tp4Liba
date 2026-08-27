@@ -21,6 +21,10 @@ if (!window.matchMedia) {
   }));
 }
 
+// jsdom no implementa scrollTo y lo reporta en cada click sobre un ancla.
+window.scrollTo = vi.fn();
+Element.prototype.scrollIntoView = vi.fn();
+
 // Tampoco implementa IntersectionObserver, que usan los reveals al scroll.
 if (!window.IntersectionObserver) {
   window.IntersectionObserver = class {
