@@ -1,25 +1,116 @@
 @import 'tailwindcss';
 
-/* Tokens del diseño de Figma (SibJcrjAnuUr7GHmVFHweR). */
+/*
+ * Tokens del diseño de Figma (archivo SibJcrjAnuUr7GHmVFHweR).
+ * Los nombres son semánticos para que las clases se lean solas: `bg-ink`,
+ * `text-muted`, `border-line`.
+ */
 @theme {
-  --color-bg: #07111f;
+  /* Color */
+  --color-ink: #07111f;
+  --color-ink-raised: #101b2d;
   --color-orange: #f97316;
-  --color-text: #ffffff;
-  --color-text-soft: #cbd5e1;
+  --color-orange-strong: #ea6a0c;
+  --color-chalk: #ffffff;
+  --color-soft: #cbd5e1;
   --color-muted: #94a3b8;
+  --color-dim: #64748b;
+  --color-line: rgb(148 163 184 / 0.12);
+  --color-line-card: rgb(148 163 184 / 0.14);
+  --color-line-strong: rgb(148 163 184 / 0.35);
+
+  /* Tipografía */
+  --font-display: var(--font-barlow-condensed), 'Barlow Condensed', system-ui, sans-serif;
+  --font-sans: var(--font-barlow), Barlow, system-ui, sans-serif;
+
+  /* Escala tipográfica del diseño */
+  --text-hero: 6rem; /* 96px */
+  --text-hero--line-height: 0.95;
+  --text-hero--letter-spacing: -0.01em;
+  --text-section: 2.75rem; /* 44px */
+  --text-section--line-height: 1.1;
+
+  /* Radios del diseño */
+  --radius-control: 7px;
+  --radius-chip: 6px;
+  --radius-card: 10px;
+
+  /* Duraciones compartidas por CSS y Motion */
+  --duration-quick: 180ms;
+  --duration-base: 320ms;
 }
 
-html {
-  scroll-behavior: smooth;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* El nav es sticky: dejamos aire para que no tape los títulos al saltar. */
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-soft);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    color: var(--color-chalk);
+    text-transform: uppercase;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-orange);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-orange);
+    color: var(--color-ink);
+  }
 }
 
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text-soft);
+@layer utilities {
+  /* Ancho de contenido del diseño: 1440 con 80px de gutter. */
+  .layout-container {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 1440px;
+    padding-inline: 1.5rem;
+  }
+
+  @media (width >= 48rem) {
+    .layout-container {
+      padding-inline: 2.5rem;
+    }
+  }
+
+  @media (width >= 80rem) {
+    .layout-container {
+      padding-inline: 5rem;
+    }
+  }
 }
 
+/*
+ * Accesibilidad: quien pida menos movimiento no recibe ninguna animación.
+ * Los componentes además consultan el mismo media query vía `useReducedMotion`
+ * para no ejecutar animaciones de Motion ni bucles de requestAnimationFrame.
+ */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
