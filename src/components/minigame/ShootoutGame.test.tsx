@@ -4,19 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShootoutGame } from './ShootoutGame';
 
 /**
- * El bucle de animación arranca sólo cuando la sección entra en pantalla, así
- * que los tests fuerzan `IntersectionObserver` a reportar el elemento como
- * visible. Sin eso la mira nunca se mueve y todos los tiros caen en el centro.
+ * El bucle que mueve la mira arranca sólo cuando la sección entra en pantalla.
+ * Estos tests dejan el `IntersectionObserver` sin disparar a propósito: así la
+ * mira se queda en el centro y cada tiro da el mismo resultado siempre.
+ *
+ * Dejarla en movimiento haría que el resultado dependiera de cuántos frames
+ * alcanzó a correr el runner antes del click, que es exactamente el tipo de
+ * test que pasa en una máquina y falla en otra. El comportamiento con la mira
+ * moviéndose se verifica en los tests end-to-end, donde el reloj se controla.
  */
-function observeAsVisible() {
+function observeWithoutFiring() {
   vi.stubGlobal(
     'IntersectionObserver',
     class {
-      constructor(callback: IntersectionObserverCallback) {
-        queueMicrotask(() =>
-          callback([{ isIntersecting: true, intersectionRatio: 1 }] as never, this as never),
-        );
-      }
       observe() {}
       unobserve() {}
       disconnect() {}
@@ -31,7 +31,7 @@ const statValue = (label: string) =>
   screen.getByText(label).parentElement?.querySelector('dd')?.textContent;
 
 beforeEach(() => {
-  observeAsVisible();
+  observeWithoutFiring();
   window.localStorage.clear();
 });
 
@@ -66,7 +66,8 @@ describe('ShootoutGame', () => {
   });
 
   it('encesta cuando la mira está quieta en el centro', async () => {
-    // Sin frames de animación la mira no se mueve del 0.5 inicial.
+    // Con la sección fuera de vista no corre ningún frame, así que la mira
+    // sigue en el 0.5 con el que arranca el reducer.
     render(<ShootoutGame />);
     await userEvent.click(screen.getByRole('button', { name: 'Tirar' }));
 
