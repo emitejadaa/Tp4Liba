@@ -3,6 +3,13 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 3100;
 const baseURL = `http://127.0.0.1:${PORT}`;
 
+/*
+ * En CI se instala el navegador que pide la versión de Playwright. En entornos
+ * que ya traen un Chromium propio —contenedores de desarrollo, por ejemplo— se
+ * puede apuntar a ese binario con PW_CHROMIUM y evitar la descarga.
+ */
+const executablePath = process.env.PW_CHROMIUM;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -13,6 +20,7 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    ...(executablePath ? { launchOptions: { executablePath } } : {}),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
