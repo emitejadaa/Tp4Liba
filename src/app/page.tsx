@@ -1,7 +1,9 @@
 'use client';
 
-import { Hero } from '@/components/sections/Hero';
 import { SiteNav } from '@/components/layout/SiteNav';
+import { Hero } from '@/components/sections/Hero';
+import { Sponsors } from '@/components/sections/Sponsors';
+import { TournamentInfo } from '@/components/sections/TournamentInfo';
 import { ScrollProgress } from '@/components/ui/ScrollProgress';
 
 export default function Home() {
@@ -11,6 +13,8 @@ export default function Home() {
       <SiteNav />
       <main>
         <Hero />
+        <TournamentInfo />
+        <Sponsors />
       </main>
     </>
   );

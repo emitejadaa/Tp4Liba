@@ -89,11 +89,15 @@ export function LibaMark(props: IconProps) {
   );
 }
 
-/** Marca de verificación de las listas de sponsors. */
-export function CheckIcon(props: IconProps) {
+/**
+ * Viñeta de las listas de sponsors: una pelota en miniatura, no un tilde.
+ * Sale del nodo 4:331 del diseño, con su trazo de 1.275 sobre 17×17.
+ */
+export function PerkBallIcon(props: IconProps) {
   return (
-    <svg width={16} height={16} {...base} viewBox="0 0 16 16" strokeWidth={2} {...props}>
-      <path d="M3 8.5L6.5 12L13 4.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={17} height={17} {...base} viewBox="0 0 17 17" strokeWidth={1.275} {...props}>
+      <path d="M8.5 14.875C12.0208 14.875 14.875 12.0208 14.875 8.5C14.875 4.97918 12.0208 2.125 8.5 2.125C4.97918 2.125 2.125 4.97918 2.125 8.5C2.125 12.0208 4.97918 14.875 8.5 14.875Z" />
+      <path d="M2.125 8.5H14.875M8.5 2.125V14.875" />
     </svg>
   );
 }
