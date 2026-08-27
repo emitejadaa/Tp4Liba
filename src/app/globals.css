@@ -8,13 +8,15 @@
 @theme {
   /* Color */
   --color-ink: #07111f;
-  --color-ink-raised: #0d1a2b;
+  --color-ink-raised: #101b2d;
   --color-orange: #f97316;
   --color-orange-strong: #ea6a0c;
   --color-chalk: #ffffff;
   --color-soft: #cbd5e1;
   --color-muted: #94a3b8;
+  --color-dim: #64748b;
   --color-line: rgb(148 163 184 / 0.12);
+  --color-line-card: rgb(148 163 184 / 0.14);
   --color-line-strong: rgb(148 163 184 / 0.35);
 
   /* Tipografía */
