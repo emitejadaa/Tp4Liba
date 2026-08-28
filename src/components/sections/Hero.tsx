@@ -117,15 +117,6 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
           style={prefersReduced ? undefined : { y: ballY, x: ballX, scale: ballScale }}
           className="relative flex w-[280px] shrink-0 items-center justify-center sm:w-[360px] lg:w-[440px]"
         >
-          {/*
-            Sombra de contacto. La esfera 3D no proyecta sombra —calcularla
-            costaría un pase de render extra por cuadro— así que se dibuja como
-            una elipse difuminada, que a esta escala se lee igual y sale gratis.
-          */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-[20%] bottom-[4%] h-[8%] rounded-[50%] bg-black/70 blur-2xl"
-          />
           <motion.div
             initial={prefersReduced ? undefined : { opacity: 0, scale: 0.85 }}
             animate={prefersReduced ? undefined : { opacity: 1, scale: 1 }}

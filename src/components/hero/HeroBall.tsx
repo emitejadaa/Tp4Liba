@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import type { BallPresetId } from '@/lib/basketball-texture';
 import { asset } from '@/lib/site';
 
 /*
@@ -13,6 +14,17 @@ import { asset } from '@/lib/site';
  * porque los dos ocupan exactamente el mismo espacio.
  */
 const Basketball3D = dynamic(() => import('./Basketball3D'), { ssr: false });
+
+/**
+ * Variante de material de la pelota.
+ *
+ * Se construyeron tres —`cuero`, `nocturno` y `estilizado`, definidas en
+ * `basketball-texture.ts`— y quedó ésta: es la que mejor se lleva con el azul
+ * oscuro de la página, porque el reflejo naranja del entorno la despega del
+ * fondo sin que haya que aclararle el cuero. Cambiar de variante es cambiar
+ * esta constante; el resto del componente no la conoce.
+ */
+const PRESET: BallPresetId = 'nocturno';
 
 /**
  * Fuente del progreso de scroll. Se pasa como objeto con `get()` en vez de como
@@ -82,9 +94,9 @@ export function HeroBall({ scroll }: { scroll?: ScrollSource }) {
 
   return (
     <div className="relative aspect-square w-full" data-testid="hero-ball-3d">
-      <Basketball3D scroll={scroll} />
+      <Basketball3D scroll={scroll} preset={PRESET} />
       <p className="text-dim pointer-events-none absolute inset-x-0 -bottom-1 text-center text-xs tracking-[0.12em] uppercase opacity-70">
-        Arrastrala
+        Arrástrala
       </p>
     </div>
   );
