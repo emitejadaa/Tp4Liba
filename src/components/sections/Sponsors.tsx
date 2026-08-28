@@ -28,7 +28,12 @@ type SponsorsProps = { onSponsor?: (tierId: string) => void };
  */
 export function Sponsors({ onSponsor }: SponsorsProps) {
   return (
-    <Section id="sponsors" aria-labelledby="sponsors-titulo" className="border-b bg-[#0a1524]" depth>
+    <Section
+      id="sponsors"
+      aria-labelledby="sponsors-titulo"
+      className="border-b bg-[#0a1524]"
+      depth
+    >
       <SectionHeading id="sponsors-titulo" eyebrow="Sponsors" className="max-w-[720px]">
         Tu marca en la cancha
       </SectionHeading>

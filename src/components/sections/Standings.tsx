@@ -120,7 +120,9 @@ export function Standings() {
                  */
                 style={prefersReduced ? undefined : { transformOrigin: 'center top' }}
                 initial={
-                  prefersReduced ? undefined : { opacity: 0, rotateX: -74, transformPerspective: 700 }
+                  prefersReduced
+                    ? undefined
+                    : { opacity: 0, rotateX: -74, transformPerspective: 700 }
                 }
                 whileInView={
                   prefersReduced ? undefined : { opacity: 1, rotateX: 0, transformPerspective: 700 }
