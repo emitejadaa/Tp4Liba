@@ -162,7 +162,12 @@ export function ShootoutGame() {
                 initial={{ x: 0, y: 0, scale: 1, rotate: 0 }}
                 animate={
                   state.shotId === 0
-                    ? { y: [0, -12, 0] }
+                    ? // El rebote de espera sólo corre con la sección a la
+                      // vista: una animación infinita fuera de pantalla gasta
+                      // frames y deja la página sin un solo cuadro estable.
+                      inView
+                      ? { y: [0, -12, 0] }
+                      : { y: 0 }
                     : {
                         // Trayectoria hacia el aro: sube, cruza y cae. Si falla,
                         // pica en el tablero y se va para el costado.
@@ -174,7 +179,7 @@ export function ShootoutGame() {
                 }
                 transition={
                   state.shotId === 0
-                    ? { duration: 2.2, repeat: Infinity, ease: 'easeInOut' }
+                    ? { duration: 2.2, repeat: inView ? Infinity : 0, ease: 'easeInOut' }
                     : { duration: 0.75, ease: [0.3, 0, 0.5, 1], times: [0, 0.55, 1] }
                 }
               >
