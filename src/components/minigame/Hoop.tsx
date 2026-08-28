@@ -9,6 +9,8 @@ type HoopProps = {
   /** Cambia en cada tiro, para reiniciar la animación de la red. */
   shotId: number;
   reducedMotion: boolean;
+  /** Espera antes de sacudir, para que coincida con el cruce de la pelota. */
+  delaySeconds?: number;
 };
 
 /**
@@ -17,7 +19,7 @@ type HoopProps = {
  *
  * La red es un grupo aparte para poder sacudirla sola cuando entra la pelota.
  */
-export function Hoop({ swish, shotId, reducedMotion }: HoopProps) {
+export function Hoop({ swish, shotId, reducedMotion, delaySeconds = 0 }: HoopProps) {
   return (
     <svg
       width={220}
@@ -44,7 +46,7 @@ export function Hoop({ swish, shotId, reducedMotion }: HoopProps) {
             ? { scaleY: [1, 1.35, 0.9, 1.12, 1], scaleX: [1, 0.88, 1.05, 0.97, 1] }
             : undefined
         }
-        transition={{ duration: 0.55, ease: 'easeOut' }}
+        transition={{ duration: 0.55, delay: delaySeconds, ease: 'easeOut' }}
       >
         <path
           d="M99 90L105 116H139L145 90M108 90L111 116M121 90V116M134 90L131 116M101 103H143"

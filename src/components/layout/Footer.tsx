@@ -18,7 +18,7 @@ export function Footer() {
           className="group flex items-center gap-2.5"
           aria-label="Volver al inicio de la página"
         >
-          <LibaMark className="size-[26px] transition-transform duration-300 motion-safe:group-hover:-translate-y-1" />
+          <LibaMark className="size-[26px] transition-transform duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:rotate-180" />
           <span className="font-display text-chalk text-[26px] leading-none font-bold tracking-[0.06em]">
             {SITE.name}
           </span>

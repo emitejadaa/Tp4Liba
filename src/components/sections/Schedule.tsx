@@ -32,7 +32,7 @@ export function Schedule() {
 
           return (
             <Reveal as="li" key={match.id} delay={index * 0.07}>
-              <div className="group bg-ink-raised border-line-card hover:border-orange h-full rounded-xl border p-6 transition-colors duration-300">
+              <div className="group bg-ink-raised border-line-card hover:border-orange h-full rounded-xl border p-6 transition-[color,border-color,transform,box-shadow] duration-300 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_18px_40px_-28px_#f97316]">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg">
                   <span className="text-chalk font-semibold">{match.home}</span>
                   <span className="text-dim text-sm font-bold tracking-[0.1em] uppercase">vs</span>

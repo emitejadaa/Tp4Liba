@@ -2,6 +2,7 @@
 
 import { motion } from 'motion/react';
 import { Section } from '@/components/ui/Section';
+import { TiltCard } from '@/components/ui/TiltCard';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { TOURNAMENT_FACTS } from '@/data/tournament';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -26,27 +27,28 @@ export function TournamentInfo() {
         {TOURNAMENT_FACTS.map(({ index, title, description, Icon }, position) => (
           <motion.li
             key={title}
-            className="group bg-ink-raised border-line-card hover:border-orange relative flex flex-col rounded-xl border p-[29px] transition-colors duration-300"
-            initial={prefersReduced ? undefined : { opacity: 0, y: 24 }}
+            className="group/tilt group"
+            initial={prefersReduced ? undefined : { opacity: 0, y: 28 }}
             whileInView={prefersReduced ? undefined : { opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.5, delay: position * 0.08, ease: [0.22, 1, 0.36, 1] }}
-            whileHover={prefersReduced ? undefined : { y: -6 }}
+            transition={{ duration: 0.55, delay: position * 0.09, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span
-              aria-hidden="true"
-              className="font-display text-dim group-hover:text-orange absolute top-6 right-7 text-2xl font-bold transition-colors xl:hidden"
-            >
-              {index}
-            </span>
-            <Icon
-              className={
-                'text-orange size-[30px] transition-transform duration-500 ' +
-                (prefersReduced ? '' : 'group-hover:scale-110 group-hover:rotate-12')
-              }
-            />
-            <h3 className="mt-[14px] text-[26px] leading-none font-bold">{title}</h3>
-            <p className="text-muted mt-[7px] text-base leading-[1.55]">{description}</p>
+            <TiltCard className="bg-ink-raised border-line-card group-hover:border-orange relative flex h-full flex-col overflow-hidden rounded-xl border p-[29px] transition-colors duration-300">
+              <span
+                aria-hidden="true"
+                className="font-display text-dim group-hover:text-orange absolute top-6 right-7 text-2xl font-bold transition-colors xl:hidden"
+              >
+                {index}
+              </span>
+              <Icon
+                className={
+                  'text-orange size-[30px] transition-transform duration-500 ' +
+                  (prefersReduced ? '' : 'group-hover:scale-110 group-hover:rotate-12')
+                }
+              />
+              <h3 className="mt-[14px] text-[26px] leading-none font-bold">{title}</h3>
+              <p className="text-muted mt-[7px] text-base leading-[1.55]">{description}</p>
+            </TiltCard>
           </motion.li>
         ))}
       </ul>
