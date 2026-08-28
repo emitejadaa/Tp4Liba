@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Footer } from '@/components/layout/Footer';
 import { SiteNav } from '@/components/layout/SiteNav';
 import { ContactCta } from '@/components/sections/ContactCta';
 import { Hero } from '@/components/sections/Hero';
 import { Minigame } from '@/components/sections/Minigame';
-import { RegistrationModal } from '@/components/sections/RegistrationModal';
 import { Rules } from '@/components/sections/Rules';
 import { Schedule } from '@/components/sections/Schedule';
 import { Sponsors } from '@/components/sections/Sponsors';
@@ -15,6 +15,15 @@ import { TournamentInfo } from '@/components/sections/TournamentInfo';
 import { Venue } from '@/components/sections/Venue';
 import { ScrollProgress } from '@/components/ui/ScrollProgress';
 import type { RegistrationKind } from '@/lib/validation';
+
+/*
+ * El formulario de inscripción sólo aparece al tocar un CTA, así que su código
+ * —y el del diálogo, la validación y los campos— se baja recién la primera vez
+ * que se abre, en lugar de viajar en la carga inicial de la página.
+ */
+const RegistrationModal = dynamic(() =>
+  import('@/components/sections/RegistrationModal').then((m) => m.RegistrationModal),
+);
 
 type ModalState = { open: boolean; kind: RegistrationKind; tier?: string; seq: number };
 
@@ -51,13 +60,16 @@ export default function Home() {
       </main>
       <Footer />
 
-      <RegistrationModal
-        key={modal.seq}
-        open={modal.open}
-        kind={modal.kind}
-        tier={modal.tier}
-        onClose={closeModal}
-      />
+      {/* Sin haber abierto nunca el diálogo no hace falta ni pedir su código. */}
+      {modal.seq > 0 ? (
+        <RegistrationModal
+          key={modal.seq}
+          open={modal.open}
+          kind={modal.kind}
+          tier={modal.tier}
+          onClose={closeModal}
+        />
+      ) : null}
     </>
   );
 }

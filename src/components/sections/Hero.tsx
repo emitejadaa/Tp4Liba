@@ -28,10 +28,16 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
 
   // Un resorte suaviza el seguimiento del scroll para que no se sienta rígido.
   const smooth = useSpring(scrollYProgress, { stiffness: 90, damping: 24, mass: 0.4 });
-  const ballY = useTransform(smooth, [0, 1], [0, 110]);
-  const ballScale = useTransform(smooth, [0, 1], [1, 0.9]);
+  // La pelota cruza la pantalla mientras se scrollea: baja, se corre hacia la
+  // izquierda, gira y crece, como si rodara fuera de cuadro.
+  const ballY = useTransform(smooth, [0, 1], [0, 220]);
+  const ballX = useTransform(smooth, [0, 1], [0, -160]);
+  const ballScale = useTransform(smooth, [0, 1], [1, 1.35]);
+  const ballSpin = useTransform(smooth, [0, 1], [0, 320]);
   const courtY = useTransform(smooth, [0, 1], [0, 60]);
+  const courtRotate = useTransform(smooth, [0, 1], [0, 6]);
   const textY = useTransform(smooth, [0, 1], [0, -30]);
+  const textFade = useTransform(smooth, [0, 0.75], [1, 0.25]);
 
   const words = HERO.titleLead.trim().split(' ');
 
@@ -44,7 +50,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
       {/* Líneas de cancha del diseño: decorativas, no se anuncian al lector de pantalla. */}
       <motion.div
         aria-hidden="true"
-        style={prefersReduced ? undefined : { y: courtY }}
+        style={prefersReduced ? undefined : { y: courtY, rotate: courtRotate }}
         className="text-muted pointer-events-none absolute -top-16 -right-40 hidden w-[1100px] opacity-10 md:block"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -53,7 +59,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
 
       <div className="layout-container relative flex flex-col items-center gap-10 lg:flex-row lg:gap-[60px]">
         <motion.div
-          style={prefersReduced ? undefined : { y: textY }}
+          style={prefersReduced ? undefined : { y: textY, opacity: textFade }}
           className="flex min-w-0 flex-1 flex-col items-start gap-[21px]"
         >
           <h1 className="text-[clamp(3rem,8vw,6rem)] leading-[0.95] font-bold tracking-[-0.01em]">
@@ -106,7 +112,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
 
         <motion.div
           aria-hidden="true"
-          style={prefersReduced ? undefined : { y: ballY, scale: ballScale }}
+          style={prefersReduced ? undefined : { y: ballY, x: ballX, scale: ballScale }}
           className="flex w-[280px] shrink-0 items-center justify-center sm:w-[360px] lg:w-[440px]"
         >
           <motion.div
@@ -115,14 +121,27 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
             transition={{ duration: 0.8, ease: EASE }}
             className="w-full"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={asset('/assets/basketball.svg')}
-              alt=""
-              width={410}
-              height={410}
-              className="h-auto w-full"
-            />
+            {/*
+              Dos rotaciones apiladas a propósito: la de afuera la mueve el
+              scroll y la de adentro el hover. Combinarlas en un solo valor
+              obligaría a recalcular ambas cada vez que cambia una.
+            */}
+            <motion.div style={prefersReduced ? undefined : { rotate: ballSpin }}>
+              <motion.div
+                whileHover={prefersReduced ? undefined : { rotate: 360, scale: 1.06 }}
+                transition={{ rotate: { duration: 1.4, ease: 'linear' }, scale: { duration: 0.3 } }}
+                className="cursor-grab active:cursor-grabbing"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={asset('/assets/basketball.svg')}
+                  alt=""
+                  width={410}
+                  height={410}
+                  className="h-auto w-full drop-shadow-[0_25px_45px_rgb(249_115_22/0.18)]"
+                />
+              </motion.div>
+            </motion.div>
           </motion.div>
         </motion.div>
       </div>

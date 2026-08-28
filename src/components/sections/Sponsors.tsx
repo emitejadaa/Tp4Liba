@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Pill } from '@/components/ui/Badge';
 import { Section } from '@/components/ui/Section';
 import { SectionHeading } from '@/components/ui/SectionHeading';
+import { TiltCard } from '@/components/ui/TiltCard';
 import { SPONSOR_COMPARISON, SPONSOR_TIERS } from '@/data/sponsors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { cn } from '@/lib/cn';
@@ -44,51 +45,55 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
         {SPONSOR_TIERS.map((tier, index) => (
           <motion.li
             key={tier.id}
-            className={cn(
-              'relative flex flex-col rounded-[14px] border p-[33px] transition-shadow duration-300',
-              tier.featured
-                ? 'border-[rgb(249_115_22/0.55)] bg-[#142138] shadow-[0_0_40px_-20px_#f97316]'
-                : 'border-line-card bg-ink-raised hover:border-line-strong',
-            )}
-            initial={prefersReduced ? undefined : { opacity: 0, y: 28 }}
+            className="group/tilt"
+            initial={prefersReduced ? undefined : { opacity: 0, y: 34 }}
             whileInView={prefersReduced ? undefined : { opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.25 }}
-            transition={{ duration: 0.5, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
-            whileHover={prefersReduced ? undefined : { y: -8 }}
+            transition={{ duration: 0.55, delay: index * 0.11, ease: [0.22, 1, 0.36, 1] }}
           >
-            {tier.featured ? (
-              <Pill className="absolute -top-[13px] left-8">Recomendado</Pill>
-            ) : null}
-
-            <h3
+            <TiltCard
+              maxDegrees={tier.featured ? 9 : 6}
               className={cn(
-                'text-[30px] leading-none font-bold',
-                TIER_TITLE_COLOR[tier.id] ?? 'text-chalk',
+                'relative flex h-full flex-col rounded-[14px] border p-[33px] transition-shadow duration-300',
+                tier.featured
+                  ? 'border-[rgb(249_115_22/0.55)] bg-[#142138] shadow-[0_0_40px_-20px_#f97316] hover:shadow-[0_0_70px_-18px_#f97316]'
+                  : 'border-line-card bg-ink-raised hover:border-line-strong',
               )}
             >
-              {tier.name}
-            </h3>
-            <p className={cn('mt-1.5 text-[15px]', tier.featured ? 'text-muted' : 'text-dim')}>
-              {tier.summary}
-            </p>
+              {tier.featured ? (
+                <Pill className="absolute -top-[13px] left-8">Recomendado</Pill>
+              ) : null}
 
-            <ul className="mt-4 flex flex-1 flex-col gap-3 pb-5">
-              {tier.perks.map((perk) => (
-                <li key={perk} className="flex items-start gap-2.5">
-                  <PerkBallIcon className="text-orange mt-1 size-[17px] shrink-0" />
-                  <span className={tier.featured ? 'text-[#e2e8f0]' : 'text-soft'}>{perk}</span>
-                </li>
-              ))}
-            </ul>
+              <h3
+                className={cn(
+                  'text-[30px] leading-none font-bold',
+                  TIER_TITLE_COLOR[tier.id] ?? 'text-chalk',
+                )}
+              >
+                {tier.name}
+              </h3>
+              <p className={cn('mt-1.5 text-[15px]', tier.featured ? 'text-muted' : 'text-dim')}>
+                {tier.summary}
+              </p>
 
-            <Button
-              size="sm"
-              variant={tier.featured ? 'primary' : 'secondary'}
-              className="w-full justify-center py-[14px]"
-              onClick={() => onSponsor?.(tier.id)}
-            >
-              Quiero ser sponsor
-            </Button>
+              <ul className="mt-4 flex flex-1 flex-col gap-3 pb-5">
+                {tier.perks.map((perk) => (
+                  <li key={perk} className="flex items-start gap-2.5">
+                    <PerkBallIcon className="text-orange mt-1 size-[17px] shrink-0" />
+                    <span className={tier.featured ? 'text-[#e2e8f0]' : 'text-soft'}>{perk}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button
+                size="sm"
+                variant={tier.featured ? 'primary' : 'secondary'}
+                className="w-full justify-center py-[14px]"
+                onClick={() => onSponsor?.(tier.id)}
+              >
+                Quiero ser sponsor
+              </Button>
+            </TiltCard>
           </motion.li>
         ))}
       </ul>

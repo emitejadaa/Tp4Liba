@@ -102,8 +102,15 @@ export function Standings() {
               <motion.tr
                 key={row.team}
                 layout={!prefersReduced}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                className="border-line hover:bg-orange/5 hover:border-l-orange border-b border-l-2 border-l-transparent transition-colors last:border-b-0"
+                initial={prefersReduced ? undefined : { opacity: 0, x: -18 }}
+                whileInView={prefersReduced ? undefined : { opacity: 1, x: 0 }}
+                viewport={{ once: true, amount: 0.4 }}
+                transition={{
+                  duration: 0.4,
+                  delay: prefersReduced ? 0 : index * 0.05,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="border-line hover:bg-orange/5 hover:border-l-orange border-b border-l-2 border-l-transparent transition-colors last:border-b-0 motion-safe:hover:[transform:translateX(4px)]"
               >
                 <td className="px-6 py-4">
                   <span

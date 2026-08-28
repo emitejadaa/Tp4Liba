@@ -3,13 +3,17 @@
 import { useCallback, useEffect, useReducer } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AimBar } from './AimBar';
+import { Confetti } from './Confetti';
 import { GameBall, Hoop } from './Hoop';
 import { ScoreStats } from './ScoreStats';
+import { StreakFire } from './StreakFire';
 import { Button } from '@/components/ui/Button';
 import { useInView } from '@/hooks/useInView';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { INITIAL_STATE, feedbackFor, shootoutReducer, shotPoints } from '@/lib/minigame/shootout';
+import { shotsToNextTier, streakTier } from '@/lib/minigame/streak';
+import { confettiCount, shotArc } from '@/lib/minigame/trajectory';
 import { cn } from '@/lib/cn';
 
 const BEST_STREAK_KEY = 'liba:mejor-racha';
@@ -98,6 +102,13 @@ export function ShootoutGame() {
 
   const scored = state.lastResult === 'in' || state.lastResult === 'perfect';
   const bestStreak = Math.max(state.best, storedBest);
+  const tier = streakTier(state.streak);
+  const faltan = shotsToNextTier(state.streak);
+
+  // La trayectoria y el confeti se derivan del resultado y del número de tiro,
+  // así que son los mismos en cada render mientras no se tire de nuevo.
+  const arc = state.lastResult ? shotArc(state.lastResult, state.shotId) : null;
+  const confetti = state.lastResult ? confettiCount(state.lastResult) : 0;
 
   return (
     <div className="bg-ink-raised border-line-card flex flex-col gap-12 rounded-2xl border p-8 lg:flex-row lg:items-center lg:p-[45px_49px]">
@@ -134,22 +145,50 @@ export function ShootoutGame() {
             stats={[
               { label: 'Encestadas', value: state.made },
               { label: 'Tiros', value: state.attempts },
-              { label: 'Racha', value: state.streak, accent: true },
+              {
+                label: 'Racha',
+                value: state.streak,
+                accent: true,
+                adornment: (
+                  <StreakFire
+                    streak={state.streak}
+                    reducedMotion={prefersReduced}
+                    className="ml-1"
+                  />
+                ),
+              },
             ]}
           />
         </div>
 
-        {bestStreak > 0 ? (
-          <p className="text-dim mt-2 text-sm">
-            Mejor racha: <span className="text-soft font-semibold">{bestStreak}</span>
-          </p>
-        ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          {bestStreak > 0 ? (
+            <p className="text-dim">
+              Mejor racha: <span className="text-soft font-semibold">{bestStreak}</span>
+            </p>
+          ) : null}
+          {tier.level > 0 ? (
+            <p className="text-orange font-semibold">
+              Racha {tier.label}
+              {faltan !== null ? (
+                <span className="text-dim font-normal"> · {faltan} para el próximo nivel</span>
+              ) : (
+                <span className="text-dim font-normal"> · nivel máximo</span>
+              )}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       {/* Cancha del juego: el aro arriba a la derecha y la pelota abajo a la izquierda. */}
       <div className="relative h-[300px] w-full max-w-[460px] shrink-0 self-center">
         <div className="absolute top-0 right-10 w-[220px]">
-          <Hoop swish={scored} shotId={state.shotId} reducedMotion={prefersReduced} />
+          <Hoop
+            swish={scored}
+            shotId={state.shotId}
+            reducedMotion={prefersReduced}
+            delaySeconds={arc ? arc.durationSeconds * arc.swishAt : 0}
+          />
         </div>
 
         <div className="absolute bottom-[10px] left-10">
@@ -161,26 +200,28 @@ export function ShootoutGame() {
                 key={state.shotId}
                 initial={{ x: 0, y: 0, scale: 1, rotate: 0 }}
                 animate={
-                  state.shotId === 0
-                    ? // El rebote de espera sólo corre con la sección a la
+                  arc
+                    ? {
+                        x: [...arc.x],
+                        y: [...arc.y],
+                        scale: [...arc.scale],
+                        rotate: [...arc.rotate],
+                      }
+                    : // El rebote de espera sólo corre con la sección a la
                       // vista: una animación infinita fuera de pantalla gasta
                       // frames y deja la página sin un solo cuadro estable.
                       inView
                       ? { y: [0, -12, 0] }
                       : { y: 0 }
-                    : {
-                        // Trayectoria hacia el aro: sube, cruza y cae. Si falla,
-                        // pica en el tablero y se va para el costado.
-                        x: scored ? [0, 130, 232] : [0, 120, 190],
-                        y: scored ? [0, -190, -108] : [0, -186, 40],
-                        scale: scored ? [1, 0.72, 0.5] : [1, 0.72, 0.6],
-                        rotate: scored ? [0, 180, 320] : [0, 200, 420],
-                      }
                 }
                 transition={
-                  state.shotId === 0
-                    ? { duration: 2.2, repeat: inView ? Infinity : 0, ease: 'easeInOut' }
-                    : { duration: 0.75, ease: [0.3, 0, 0.5, 1], times: [0, 0.55, 1] }
+                  arc
+                    ? {
+                        duration: arc.durationSeconds,
+                        times: [...arc.times],
+                        ease: [0.25, 0.1, 0.4, 1],
+                      }
+                    : { duration: 2.2, repeat: inView ? Infinity : 0, ease: 'easeInOut' }
                 }
               >
                 <GameBall />
@@ -189,6 +230,16 @@ export function ShootoutGame() {
           )}
         </div>
 
+        {/* Confeti sincronizado con el momento en que la pelota cruza el aro. */}
+        {!prefersReduced && arc && confetti > 0 ? (
+          <Confetti
+            key={state.shotId}
+            shotId={state.shotId}
+            count={confetti}
+            delaySeconds={arc.durationSeconds * arc.swishAt}
+          />
+        ) : null}
+
         <AnimatePresence>
           {scored ? (
             <motion.span
@@ -196,7 +247,7 @@ export function ShootoutGame() {
               initial={{ opacity: 0, y: 0, scale: 0.8 }}
               animate={{ opacity: 1, y: -32, scale: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.5, delay: arc ? arc.durationSeconds * arc.swishAt : 0 }}
               aria-hidden="true"
               className="font-display text-orange absolute top-[110px] right-[70px] text-3xl font-bold"
             >

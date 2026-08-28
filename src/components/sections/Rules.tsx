@@ -38,8 +38,10 @@ export function Rules() {
             <div
               key={rule.id}
               className={cn(
-                'bg-ink-raised mb-3 rounded-xl border transition-colors duration-300',
-                isOpen ? 'border-orange/40' : 'border-line-card hover:border-line-strong',
+                'bg-ink-raised mb-3 rounded-xl border transition-[border-color,box-shadow] duration-300',
+                isOpen
+                  ? 'border-orange/40 shadow-[0_0_50px_-30px_#f97316]'
+                  : 'border-line-card hover:border-line-strong',
               )}
             >
               <h3>
