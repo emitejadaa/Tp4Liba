@@ -1,14 +1,13 @@
 'use client';
 
-import { motion } from 'motion/react';
 import { PerkBallIcon } from '@/components/icons';
 import { Button } from '@/components/ui/Button';
 import { Pill } from '@/components/ui/Badge';
+import { Reveal3D } from '@/components/ui/Reveal3D';
 import { Section } from '@/components/ui/Section';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { TiltCard } from '@/components/ui/TiltCard';
 import { SPONSOR_COMPARISON, SPONSOR_TIERS } from '@/data/sponsors';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { cn } from '@/lib/cn';
 
 /** Color del título de cada plan, como en el diseño. */
@@ -28,10 +27,8 @@ type SponsorsProps = { onSponsor?: (tierId: string) => void };
  * apilar tres listas de beneficios repetidos.
  */
 export function Sponsors({ onSponsor }: SponsorsProps) {
-  const prefersReduced = useReducedMotion();
-
   return (
-    <Section id="sponsors" aria-labelledby="sponsors-titulo" className="border-b bg-[#0a1524]">
+    <Section id="sponsors" aria-labelledby="sponsors-titulo" className="border-b bg-[#0a1524]" depth>
       <SectionHeading id="sponsors-titulo" eyebrow="Sponsors" className="max-w-[720px]">
         Tu marca en la cancha
       </SectionHeading>
@@ -43,13 +40,15 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
       {/* Tarjetas: la vista principal del diseño, a partir de 1024px. */}
       <ul aria-label="Planes de sponsoreo" className="hidden gap-5 lg:grid lg:grid-cols-3">
         {SPONSOR_TIERS.map((tier, index) => (
-          <motion.li
+          <Reveal3D
+            as="li"
             key={tier.id}
             className="group/tilt"
-            initial={prefersReduced ? undefined : { opacity: 0, y: 34 }}
-            whileInView={prefersReduced ? undefined : { opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.25 }}
-            transition={{ duration: 0.55, delay: index * 0.11, ease: [0.22, 1, 0.36, 1] }}
+            delay={index * 0.11}
+            // La de Oro llega desde más atrás y un toque después: entra última y
+            // desde más lejos, que es lo que la despega de las otras dos.
+            depth={tier.featured ? 150 : 90}
+            rotate={tier.featured ? 18 : 12}
           >
             <TiltCard
               maxDegrees={tier.featured ? 9 : 6}
@@ -94,13 +93,14 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
                 Quiero ser sponsor
               </Button>
             </TiltCard>
-          </motion.li>
+          </Reveal3D>
         ))}
       </ul>
 
       {/* Tabla comparativa: la variante del diseño para pantallas angostas. */}
       <div className="lg:hidden">
-        <div className="border-line-card overflow-x-auto rounded-[14px] border">
+        {/* `relative` por lo mismo que en la tabla de posiciones. */}
+        <div className="border-line-card relative overflow-x-auto rounded-[14px] border">
           <table className="w-full min-w-[420px] border-collapse text-left">
             <caption className="sr-only">Beneficios incluidos en cada plan de sponsoreo</caption>
             <thead>

@@ -25,7 +25,7 @@ export function Rules() {
     );
 
   return (
-    <Section id="reglamento" aria-labelledby="reglamento-titulo">
+    <Section id="reglamento" aria-labelledby="reglamento-titulo" depth>
       <SectionHeading id="reglamento-titulo">Reglamento</SectionHeading>
 
       <div className="max-w-[940px]">
@@ -79,10 +79,28 @@ export function Rules() {
                     id={panelId}
                     role="region"
                     aria-labelledby={buttonId}
-                    initial={prefersReduced ? undefined : { height: 0, opacity: 0 }}
-                    animate={prefersReduced ? undefined : { height: 'auto', opacity: 1 }}
-                    exit={prefersReduced ? undefined : { height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    /*
+                     * Abre girando desde el borde de arriba, como la tapa de una
+                     * caja: el alto solo hacía que el texto se descubriera, y
+                     * girándolo además se ve de dónde sale.
+                     */
+                    style={prefersReduced ? undefined : { transformOrigin: 'center top' }}
+                    initial={
+                      prefersReduced
+                        ? undefined
+                        : { height: 0, opacity: 0, rotateX: -32, transformPerspective: 800 }
+                    }
+                    animate={
+                      prefersReduced
+                        ? undefined
+                        : { height: 'auto', opacity: 1, rotateX: 0, transformPerspective: 800 }
+                    }
+                    exit={
+                      prefersReduced
+                        ? undefined
+                        : { height: 0, opacity: 0, rotateX: -32, transformPerspective: 800 }
+                    }
+                    transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
                     className="overflow-hidden"
                   >
                     <p className="text-muted px-7 pb-6 text-[17px] leading-[1.7]">{rule.body}</p>

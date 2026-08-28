@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { DepthLayer } from '@/components/ui/DepthLayer';
 import { cn } from '@/lib/cn';
 
 type SectionProps = {
@@ -7,6 +8,11 @@ type SectionProps = {
   className?: string;
   /** Línea divisoria superior, como separa las secciones el diseño. */
   bordered?: boolean;
+  /**
+   * Mueve el contenido en profundidad al scrollear: llega desde el fondo y se
+   * planta de frente mientras se lo lee.
+   */
+  depth?: boolean;
   'aria-labelledby'?: string;
 };
 
@@ -16,6 +22,7 @@ export function Section({
   children,
   className,
   bordered = true,
+  depth = false,
   'aria-labelledby': labelledBy,
 }: SectionProps) {
   return (
@@ -28,7 +35,11 @@ export function Section({
         className,
       )}
     >
-      <div className="layout-container">{children}</div>
+      {depth ? (
+        <DepthLayer className="layout-container">{children}</DepthLayer>
+      ) : (
+        <div className="layout-container">{children}</div>
+      )}
     </section>
   );
 }

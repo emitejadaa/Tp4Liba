@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'motion/react';
+import { Reveal3D } from '@/components/ui/Reveal3D';
 import { Section } from '@/components/ui/Section';
 import { TiltCard } from '@/components/ui/TiltCard';
 import { SectionHeading } from '@/components/ui/SectionHeading';
@@ -18,21 +18,14 @@ export function TournamentInfo() {
   const prefersReduced = useReducedMotion();
 
   return (
-    <Section id="torneo" aria-labelledby="torneo-titulo">
+    <Section id="torneo" aria-labelledby="torneo-titulo" depth>
       <SectionHeading id="torneo-titulo" aside="Temporada 2026">
         El torneo
       </SectionHeading>
 
       <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {TOURNAMENT_FACTS.map(({ index, title, description, Icon }, position) => (
-          <motion.li
-            key={title}
-            className="group/tilt group"
-            initial={prefersReduced ? undefined : { opacity: 0, y: 28 }}
-            whileInView={prefersReduced ? undefined : { opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.55, delay: position * 0.09, ease: [0.22, 1, 0.36, 1] }}
-          >
+          <Reveal3D as="li" key={title} className="group/tilt group" delay={position * 0.09}>
             <TiltCard className="bg-ink-raised border-line-card group-hover:border-orange relative flex h-full flex-col overflow-hidden rounded-xl border p-[29px] transition-colors duration-300">
               <span
                 aria-hidden="true"
@@ -49,7 +42,7 @@ export function TournamentInfo() {
               <h3 className="mt-[14px] text-[26px] leading-none font-bold">{title}</h3>
               <p className="text-muted mt-[7px] text-base leading-[1.55]">{description}</p>
             </TiltCard>
-          </motion.li>
+          </Reveal3D>
         ))}
       </ul>
     </Section>

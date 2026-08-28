@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Reveal } from '@/components/ui/Reveal';
+import { Reveal3D } from '@/components/ui/Reveal3D';
 import { Section } from '@/components/ui/Section';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { SCHEDULE } from '@/data/schedule';
@@ -20,7 +21,7 @@ export function Schedule() {
   const prefersReduced = useReducedMotion();
 
   return (
-    <Section id="cronograma" aria-labelledby="cronograma-titulo">
+    <Section id="cronograma" aria-labelledby="cronograma-titulo" depth>
       <SectionHeading id="cronograma-titulo" aside={SCHEDULE.when}>
         Cronograma · {SCHEDULE.round}
       </SectionHeading>
@@ -31,7 +32,7 @@ export function Schedule() {
           const panelId = `boxscore-${match.id}`;
 
           return (
-            <Reveal as="li" key={match.id} delay={index * 0.07}>
+            <Reveal3D as="li" key={match.id} delay={index * 0.07}>
               <div className="group bg-ink-raised border-line-card hover:border-orange h-full rounded-xl border p-6 transition-[color,border-color,transform,box-shadow] duration-300 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_18px_40px_-28px_#f97316]">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg">
                   <span className="text-chalk font-semibold">{match.home}</span>
@@ -91,7 +92,7 @@ export function Schedule() {
                   ) : null}
                 </AnimatePresence>
               </div>
-            </Reveal>
+            </Reveal3D>
           );
         })}
       </ul>
