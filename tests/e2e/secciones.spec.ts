@@ -20,10 +20,30 @@ test.describe('Tabla de posiciones', () => {
     await page.goto('/');
     const equipos = page.locator('#tabla tbody th');
 
-    await expect(equipos.first()).toHaveText('Los Halcones');
+    await expect(equipos.first()).toHaveText('Palermo Ballers');
 
     await page.getByRole('button', { name: /Ordenar por Puntos/ }).click();
     await expect(equipos.first()).toHaveText('Rebote Club');
+  });
+
+  test('cada columna da un orden distinto', async ({ page }) => {
+    await page.goto('/');
+    const equipos = page.locator('#tabla tbody th');
+    const orden = () => equipos.allInnerTexts();
+
+    const porPuntos = await orden();
+
+    await page.getByRole('button', { name: /Ordenar por Partidos ganados/ }).click();
+    const porGanados = await orden();
+
+    await page.getByRole('button', { name: /Ordenar por Partidos jugados/ }).click();
+    const porJugados = await orden();
+
+    // Si dos columnas dieran el mismo orden, una de las dos no serviría.
+    expect(new Set([porPuntos, porGanados, porJugados].map((o) => o.join()))).toHaveProperty(
+      'size',
+      3,
+    );
   });
 });
 

@@ -2,6 +2,7 @@
 
 import { Fragment, useRef } from 'react';
 import { motion, useScroll, useSpring, useTransform } from 'motion/react';
+import { HeroBall } from '@/components/hero/HeroBall';
 import { DotBadge } from '@/components/ui/Badge';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { HERO } from '@/data/hero';
@@ -33,7 +34,9 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
   const ballY = useTransform(smooth, [0, 1], [0, 220]);
   const ballX = useTransform(smooth, [0, 1], [0, -160]);
   const ballScale = useTransform(smooth, [0, 1], [1, 1.35]);
-  const ballSpin = useTransform(smooth, [0, 1], [0, 320]);
+  // El lienzo 3D lee este valor dentro de su propio bucle de render, así el
+  // scroll no dispara un re-render de React por cuadro.
+  const ballProgress = smooth;
   const courtY = useTransform(smooth, [0, 1], [0, 60]);
   const courtRotate = useTransform(smooth, [0, 1], [0, 6]);
   const textY = useTransform(smooth, [0, 1], [0, -30]);
@@ -111,37 +114,25 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
         </motion.div>
 
         <motion.div
-          aria-hidden="true"
           style={prefersReduced ? undefined : { y: ballY, x: ballX, scale: ballScale }}
-          className="flex w-[280px] shrink-0 items-center justify-center sm:w-[360px] lg:w-[440px]"
+          className="relative flex w-[280px] shrink-0 items-center justify-center sm:w-[360px] lg:w-[440px]"
         >
+          {/*
+            Sombra de contacto. La esfera 3D no proyecta sombra —calcularla
+            costaría un pase de render extra por cuadro— así que se dibuja como
+            una elipse difuminada, que a esta escala se lee igual y sale gratis.
+          */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-[20%] bottom-[4%] h-[8%] rounded-[50%] bg-black/70 blur-2xl"
+          />
           <motion.div
             initial={prefersReduced ? undefined : { opacity: 0, scale: 0.85 }}
             animate={prefersReduced ? undefined : { opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: EASE }}
             className="w-full"
           >
-            {/*
-              Dos rotaciones apiladas a propósito: la de afuera la mueve el
-              scroll y la de adentro el hover. Combinarlas en un solo valor
-              obligaría a recalcular ambas cada vez que cambia una.
-            */}
-            <motion.div style={prefersReduced ? undefined : { rotate: ballSpin }}>
-              <motion.div
-                whileHover={prefersReduced ? undefined : { rotate: 360, scale: 1.06 }}
-                transition={{ rotate: { duration: 1.4, ease: 'linear' }, scale: { duration: 0.3 } }}
-                className="cursor-grab active:cursor-grabbing"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={asset('/assets/basketball.svg')}
-                  alt=""
-                  width={410}
-                  height={410}
-                  className="h-auto w-full drop-shadow-[0_25px_45px_rgb(249_115_22/0.18)]"
-                />
-              </motion.div>
-            </motion.div>
+            <HeroBall scroll={ballProgress} />
           </motion.div>
         </motion.div>
       </div>

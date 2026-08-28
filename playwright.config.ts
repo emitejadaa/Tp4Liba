@@ -33,7 +33,15 @@ export default defineConfig({
      * que vuelve a habilitarlas.
      */
     contextOptions: { reducedMotion: 'reduce' },
-    launchOptions: executablePath ? { executablePath } : {},
+    launchOptions: {
+      ...(executablePath ? { executablePath } : {}),
+      /*
+       * El encabezado dibuja la pelota con WebGL. Chromium headless no trae
+       * GPU, así que se le pide el renderizador por software: sin esto la
+       * página cae a la ilustración plana y los tests del 3D no probarían nada.
+       */
+      args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'],
+    },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

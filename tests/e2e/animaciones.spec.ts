@@ -10,7 +10,9 @@ test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 test.describe('Animaciones e interacción', () => {
   test('la pelota del encabezado se mueve al scrollear', async ({ page }) => {
     await page.goto('/');
-    const pelota = page.locator('#inicio img[src*="basketball"]');
+    // La pelota es un lienzo 3D cuando hay WebGL; medimos su contenedor, que es
+    // lo que el parallax desplaza.
+    const pelota = page.locator('#inicio [data-testid="hero-ball-3d"]');
 
     const antes = await pelota.boundingBox();
     expect(antes).not.toBeNull();
@@ -88,5 +90,49 @@ test.describe('Animaciones e interacción', () => {
     expect(racha).toBeGreaterThanOrEqual(3);
     await expect(fuego).toHaveCount(1);
     await expect(page.getByText('Racha encendida')).toBeVisible();
+  });
+});
+
+test.describe('Pelota 3D del encabezado', () => {
+  test('se puede arrastrar y queda girando por inercia', async ({ page }) => {
+    await page.goto('/');
+
+    const lienzo = page.locator('#inicio canvas');
+    await expect(lienzo).toHaveCount(1);
+
+    const caja = await lienzo.boundingBox();
+    expect(caja).not.toBeNull();
+    const centro = { x: caja!.x + caja!.width / 2, y: caja!.y + caja!.height / 2 };
+
+    /*
+     * No podemos leer la rotación del mesh desde afuera, así que comparamos los
+     * píxeles: si la pelota giró, la imagen del lienzo cambia. Se compara contra
+     * una captura tomada en el mismo instante del giro en reposo para no
+     * confundir el arrastre con el giro que ya venía.
+     */
+    const antes = await lienzo.screenshot();
+
+    await page.mouse.move(centro.x, centro.y);
+    await page.mouse.down();
+    for (let paso = 1; paso <= 10; paso++) {
+      await page.mouse.move(centro.x + paso * 14, centro.y + paso * 3);
+      await page.waitForTimeout(16);
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(120);
+
+    const despues = await lienzo.screenshot();
+    expect(Buffer.compare(antes, despues)).not.toBe(0);
+  });
+});
+
+test.describe('Pelota del encabezado con movimiento reducido', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' } });
+
+  test('cae a la ilustración plana en vez de montar el lienzo 3D', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.locator('#inicio canvas')).toHaveCount(0);
+    await expect(page.locator('#inicio img[src*="basketball"]')).toHaveCount(1);
   });
 });

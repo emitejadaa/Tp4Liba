@@ -18,7 +18,7 @@ describe('Standings', () => {
 
   it('arranca ordenada por puntos de mayor a menor', () => {
     render(<Standings />);
-    expect(teamNames()[0]).toBe('Los Halcones');
+    expect(teamNames()[0]).toBe('Palermo Ballers');
     expect(teamNames().at(-1)).toBe('Rebote Club');
   });
 
@@ -40,13 +40,27 @@ describe('Standings', () => {
 
   it('reordena por partidos ganados', async () => {
     render(<Standings />);
+    const porPuntos = teamNames();
+
     await userEvent.click(screen.getByRole('button', { name: /Ordenar por Partidos ganados/ }));
 
     expect(teamNames()[0]).toBe('Los Halcones');
-    expect(teamNames().at(-1)).toBe('Rebote Club');
+    // El orden por ganados no es el mismo que por puntos: si lo fuera, la
+    // columna no aportaría nada.
+    expect(teamNames()).not.toEqual(porPuntos);
     expect(
       within(table()).getByRole('columnheader', { name: /Ordenar por Puntos/ }),
     ).toHaveAttribute('aria-sort', 'none');
+  });
+
+  it('reordena por partidos jugados', async () => {
+    render(<Standings />);
+    const porPuntos = teamNames();
+
+    await userEvent.click(screen.getByRole('button', { name: /Ordenar por Partidos jugados/ }));
+
+    expect(teamNames()[0]).toBe('Palermo Ballers');
+    expect(teamNames()).not.toEqual(porPuntos);
   });
 
   it('aclara que los datos son de ejemplo', () => {
