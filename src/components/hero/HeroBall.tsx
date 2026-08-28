@@ -19,12 +19,15 @@ const Basketball3D = dynamic(() => import('./Basketball3D'), { ssr: false });
  * Variante de material de la pelota.
  *
  * Se construyeron tres —`cuero`, `nocturno` y `estilizado`, definidas en
- * `basketball-texture.ts`— y quedó ésta: es la que mejor se lleva con el azul
- * oscuro de la página, porque el reflejo naranja del entorno la despega del
- * fondo sin que haya que aclararle el cuero. Cambiar de variante es cambiar
- * esta constante; el resto del componente no la conoce.
+ * `basketball-texture.ts`— y quedó ésta: superficie limpia, granulado apenas
+ * insinuado y un brillo concentrado que se corre al girarla. Es la más gráfica
+ * de las tres, en línea con el resto de la landing, que también es de formas
+ * planas y contraste alto antes que de texturas.
+ *
+ * Cambiar de variante es cambiar esta constante; el resto del componente no la
+ * conoce.
  */
-const PRESET: BallPresetId = 'nocturno';
+const PRESET: BallPresetId = 'estilizado';
 
 /**
  * Fuente del progreso de scroll. Se pasa como objeto con `get()` en vez de como
