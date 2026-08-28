@@ -72,7 +72,9 @@ PW_CHROMIUM=/ruta/al/chrome npm run test:e2e
 
 La landing está pensada para leerse scrolleando, así que casi todo se mueve:
 
-- La pelota del encabezado gira al pasarle el cursor y, al scrollear, baja, se corre, crece y rota.
+- La pelota del encabezado es un objeto 3D real, hecho con Three.js: se la arrastra con el dedo o el
+  mouse y sigue girando por inercia al soltarla. La textura de cuero, con costuras y granulado, se
+  dibuja por código en vez de traerse como imagen.
 - Las tarjetas de El torneo y de Sponsors se inclinan en 3D hacia el puntero.
 - Los botones se corren unos píxeles hacia el cursor, con tope para no escaparse de abajo del mouse.
 - Los títulos de sección entran escalonados y las filas de la tabla en cascada.

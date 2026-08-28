@@ -52,9 +52,38 @@ describe('sortStandings', () => {
     expect(rows).toEqual(original);
   });
 
-  it('deja la tabla del diseño en su orden original al ordenar por puntos', () => {
-    const sorted = sortStandings(STANDINGS, 'points', 'desc');
-    expect(sorted.map((row) => row.team)).toEqual(STANDINGS.map((row) => row.team));
+  it('reordena de verdad la tabla, que no viene pre-ordenada', () => {
+    const porPuntos = sortStandings(STANDINGS, 'points', 'desc').map((row) => row.team);
+    expect(porPuntos).not.toEqual(STANDINGS.map((row) => row.team));
+    expect(porPuntos[0]).toBe('Palermo Ballers');
+  });
+
+  it('cada columna da un orden distinto, así los filtros sirven para algo', () => {
+    const porColumna = (['points', 'won', 'played'] as const).map((key) =>
+      sortStandings(STANDINGS, key, 'desc')
+        .map((row) => row.team)
+        .join(),
+    );
+    expect(new Set(porColumna).size).toBe(3);
+  });
+});
+
+describe('datos de la tabla', () => {
+  it('respeta el reglamento: 2 puntos por ganado y 1 por perdido', () => {
+    for (const row of STANDINGS) {
+      expect(row.points).toBe(row.won + row.played);
+    }
+  });
+
+  it('no todos los equipos jugaron la misma cantidad de fechas', () => {
+    // Si todos tuvieran los mismos PJ, ordenar por esa columna no movería nada.
+    expect(new Set(STANDINGS.map((row) => row.played)).size).toBeGreaterThan(1);
+  });
+
+  it('nadie ganó más partidos de los que jugó', () => {
+    for (const row of STANDINGS) {
+      expect(row.won).toBeLessThanOrEqual(row.played);
+    }
   });
 });
 
