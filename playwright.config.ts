@@ -20,7 +20,20 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
-    ...(executablePath ? { launchOptions: { executablePath } } : {}),
+    /*
+     * Los tests corren con `prefers-reduced-motion` por defecto. No es para
+     * esquivar las animaciones: es que casi todas las aserciones son sobre
+     * comportamiento, y una página con movimiento continuo hace que el chequeo
+     * de estabilidad de Playwright —que compara la posición de un elemento
+     * entre dos cuadros -- nunca se dé por satisfecho en una máquina lenta.
+     *
+     * De paso, esta es la misma configuración que usa quien pidió menos
+     * movimiento en su sistema, así que la suite verifica que ese camino
+     * funcione. Las animaciones se prueban aparte, en `animaciones.spec.ts`,
+     * que vuelve a habilitarlas.
+     */
+    contextOptions: { reducedMotion: 'reduce' },
+    launchOptions: executablePath ? { executablePath } : {},
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

@@ -2,10 +2,10 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 /**
- * La mira del minijuego se mueve con `requestAnimationFrame`, así que sin
- * controlar el tiempo cada corrida daría un resultado distinto. `page.clock`
- * congela el reloj: la mira queda quieta donde está y los tiros son
- * reproducibles.
+ * Con `prefers-reduced-motion` la mira no se desliza: avanza a pasos con un
+ * intervalo. Eso la vuelve completamente determinista bajo `page.clock`, que sí
+ * controla los temporizadores —a diferencia de `requestAnimationFrame`, donde
+ * la posición dependía de cuántos cuadros alcanzara a dibujar la máquina.
  */
 test.describe('Minijuego «Tirá al aro»', () => {
   test.beforeEach(async ({ page }) => {
@@ -23,15 +23,13 @@ test.describe('Minijuego «Tirá al aro»', () => {
     await expect(page.locator('#minijuego [role="status"]')).toHaveText('Esperá la zona naranja');
   });
 
-  test('con el reloj congelado la mira queda en la zona y el tiro entra', async ({ page }) => {
+  test('sin avanzar el reloj la mira sigue en el centro y el tiro es triple', async ({ page }) => {
     await page.getByRole('button', { name: 'Tirar' }).click();
 
     await expect(stat(page, 'Tiros')).toHaveText('1');
     await expect(stat(page, 'Encestadas')).toHaveText('1');
     await expect(stat(page, 'Racha')).toHaveText('1');
-    // Que sea doble o triple depende de dónde exactamente quedó la mira dentro
-    // de la zona, y eso no es lo que este test verifica.
-    await expect(page.locator('#minijuego [role="status"]')).toHaveText(/¡(Adentro|Triple)!/);
+    await expect(page.locator('#minijuego [role="status"]')).toHaveText('¡Triple! +3');
   });
 
   test('cuenta cada tiro y el récord sobrevive a recargar la página', async ({ page }) => {
@@ -53,7 +51,7 @@ test.describe('Minijuego «Tirá al aro»', () => {
   });
 
   test('falla cuando la mira quedó fuera de la zona', async ({ page }) => {
-    // Adelantamos el reloj para que la mira se corra del centro.
+    // Dos pasos de la mira la dejan lejos del centro.
     await page.clock.runFor(700);
     await page.getByRole('button', { name: 'Tirar' }).click();
 
