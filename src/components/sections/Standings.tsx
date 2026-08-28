@@ -42,12 +42,22 @@ export function Standings() {
   const rows = sortStandings(STANDINGS, sort.key, sort.direction);
 
   return (
-    <Section id="tabla" aria-labelledby="tabla-titulo">
+    <Section id="tabla" aria-labelledby="tabla-titulo" depth>
       <SectionHeading id="tabla-titulo" aside="Datos de ejemplo · la temporada no arrancó">
         Tabla de posiciones
       </SectionHeading>
 
-      <div ref={ref} className="border-line-card bg-ink-raised overflow-x-auto rounded-xl border">
+      {/*
+        `relative` no es decorativo: adentro de la tabla hay textos `sr-only`,
+        que son `position: absolute`. Sin un ancestro posicionado su bloque
+        contenedor es el viewport, así que el `overflow-x` de acá no los recorta
+        y estiran la página —en un teléfono se podía arrastrar la landing 130 px
+        para el costado—. Posicionando el contenedor quedan adentro de su scroll.
+      */}
+      <div
+        ref={ref}
+        className="border-line-card bg-ink-raised relative overflow-x-auto rounded-xl border"
+      >
         <table className="w-full min-w-[560px] border-collapse">
           <caption className="sr-only">
             Posiciones de la temporada 2026. Se puede ordenar por partidos jugados, ganados o
@@ -102,12 +112,25 @@ export function Standings() {
               <motion.tr
                 key={row.team}
                 layout={!prefersReduced}
-                initial={prefersReduced ? undefined : { opacity: 0, x: -18 }}
-                whileInView={prefersReduced ? undefined : { opacity: 1, x: 0 }}
+                /*
+                 * Cada fila cae desde su borde de arriba, como la solapa de un
+                 * cartel de aeropuerto. El origen en el borde superior es lo que
+                 * lo hace leer como una tapa que se acuesta y no como una fila
+                 * que se achata.
+                 */
+                style={prefersReduced ? undefined : { transformOrigin: 'center top' }}
+                initial={
+                  prefersReduced
+                    ? undefined
+                    : { opacity: 0, rotateX: -74, transformPerspective: 700 }
+                }
+                whileInView={
+                  prefersReduced ? undefined : { opacity: 1, rotateX: 0, transformPerspective: 700 }
+                }
                 viewport={{ once: true, amount: 0.4 }}
                 transition={{
-                  duration: 0.4,
-                  delay: prefersReduced ? 0 : index * 0.05,
+                  duration: 0.5,
+                  delay: prefersReduced ? 0 : index * 0.055,
                   ease: [0.22, 1, 0.36, 1],
                 }}
                 className="border-line hover:bg-orange/5 hover:border-l-orange border-b border-l-2 border-l-transparent transition-colors last:border-b-0 motion-safe:hover:[transform:translateX(4px)]"

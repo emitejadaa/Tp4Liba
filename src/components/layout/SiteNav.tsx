@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, useScroll, useSpring, useTransform } from 'motion/react';
 import { LibaMark } from '@/components/icons';
 import { Button } from '@/components/ui/Button';
 import { NAV_LINKS } from '@/data/navigation';
@@ -23,6 +23,25 @@ export function SiteNav({ onRegister }: { onRegister?: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const activeId = useScrollSpy(SPY_IDS);
   const prefersReduced = useReducedMotion();
+
+  /*
+   * El isotipo se va girando sobre su eje vertical a medida que avanza la
+   * página: es un indicador de cuánto se leyó, igual que la barra del tope, pero
+   * en el objeto de la marca.
+   *
+   * El giro llega hasta 42 grados y no da la vuelta entera a propósito. El
+   * isotipo es un dibujo plano: al pasar por los 90 grados se ve de canto y
+   * desaparece, y como el scroll puede quedar frenado justo ahí, el logo del
+   * sitio se esfumaba. Acotado, gira lo suficiente para leerse en 3D y nunca
+   * deja de verse.
+   *
+   * Va por `useScroll` de Motion y no por `useScrollProgress`, que hace un
+   * `setState`: acá el valor se escribe directo en el estilo y no re-renderiza
+   * el nav sesenta veces por segundo.
+   */
+  const { scrollYProgress } = useScroll();
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 70, damping: 22, mass: 0.4 });
+  const markSpin = useTransform(smoothProgress, [0, 1], [0, 42]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -59,12 +78,22 @@ export function SiteNav({ onRegister }: { onRegister?: () => void }) {
           className="group flex items-center gap-3"
           aria-label={`${SITE.name}, ir al inicio`}
         >
-          <LibaMark
-            className={cn(
-              'size-[30px] transition-transform duration-500',
-              !prefersReduced && 'group-hover:rotate-180',
-            )}
-          />
+          {/*
+            El giro del scroll va en un contenedor y el del hover en el propio
+            isotipo: son dos transformaciones distintas sobre el mismo elemento,
+            y anidándolas se componen en vez de pisarse.
+          */}
+          <motion.span
+            className="inline-flex"
+            style={prefersReduced ? undefined : { rotateY: markSpin, transformPerspective: 420 }}
+          >
+            <LibaMark
+              className={cn(
+                'size-[30px] transition-transform duration-500',
+                !prefersReduced && 'group-hover:rotate-180',
+              )}
+            />
+          </motion.span>
           <span className="font-display text-chalk text-[28px] leading-none font-bold tracking-[0.06em]">
             {SITE.name}
           </span>

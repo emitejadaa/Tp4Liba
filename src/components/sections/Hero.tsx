@@ -42,6 +42,15 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
   const textY = useTransform(smooth, [0, 1], [0, -30]);
   const textFade = useTransform(smooth, [0, 0.75], [1, 0.25]);
 
+  /*
+   * Las tres capas se separan además en profundidad, no sólo en velocidad: las
+   * líneas de cancha se hunden hacia atrás y el texto se adelanta. Es lo que
+   * convierte el parallax en volumen, porque los planos dejan de estar todos a
+   * la misma distancia.
+   */
+  const courtDepth = useTransform(smooth, [0, 1], [-120, -320]);
+  const textDepth = useTransform(smooth, [0, 1], [0, 90]);
+
   const words = HERO.titleLead.trim().split(' ');
 
   return (
@@ -53,7 +62,11 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
       {/* Líneas de cancha del diseño: decorativas, no se anuncian al lector de pantalla. */}
       <motion.div
         aria-hidden="true"
-        style={prefersReduced ? undefined : { y: courtY, rotate: courtRotate }}
+        style={
+          prefersReduced
+            ? undefined
+            : { y: courtY, rotate: courtRotate, z: courtDepth, transformPerspective: 1200 }
+        }
         className="text-muted pointer-events-none absolute -top-16 -right-40 hidden w-[1100px] opacity-10 md:block"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -62,7 +75,11 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
 
       <div className="layout-container relative flex flex-col items-center gap-10 lg:flex-row lg:gap-[60px]">
         <motion.div
-          style={prefersReduced ? undefined : { y: textY, opacity: textFade }}
+          style={
+            prefersReduced
+              ? undefined
+              : { y: textY, opacity: textFade, z: textDepth, transformPerspective: 1200 }
+          }
           className="flex min-w-0 flex-1 flex-col items-start gap-[21px]"
         >
           <h1 className="text-[clamp(3rem,8vw,6rem)] leading-[0.95] font-bold tracking-[-0.01em]">
