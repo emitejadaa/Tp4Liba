@@ -68,6 +68,24 @@ descarga:
 PW_CHROMIUM=/ruta/al/chrome npm run test:e2e
 ```
 
+## Interacciones
+
+La landing está pensada para leerse scrolleando, así que casi todo se mueve:
+
+- La pelota del encabezado gira al pasarle el cursor y, al scrollear, baja, se corre, crece y rota.
+- Las tarjetas de El torneo y de Sponsors se inclinan en 3D hacia el puntero.
+- Los botones se corren unos píxeles hacia el cursor, con tope para no escaparse de abajo del mouse.
+- Los títulos de sección entran escalonados y las filas de la tabla en cascada.
+- El minijuego «Tirá al aro» tiene seis trayectorias, confeti al encestar y un fuego de racha que
+  sube de nivel cada tres encestadas.
+
+Todo el movimiento son transformaciones y opacidad, y los efectos de puntero miden el elemento una
+sola vez al entrar. Medido scrolleando la página entera: 60 cuadros por segundo, ninguno por encima
+de 32 ms.
+
+Con `prefers-reduced-motion` no se monta ninguna animación: ni los manejadores de puntero, ni el
+confeti, ni las chispas del fuego.
+
 ## Integración continua
 
 `.github/workflows/ci.yml` corre en cada push y pull request a `main`, en dos jobs paralelos:
@@ -75,3 +93,19 @@ PW_CHROMIUM=/ruta/al/chrome npm run test:e2e
 - **Lint, tipos y tests unitarios**: formato, ESLint, `tsc --noEmit`, Vitest con cobertura y build.
 - **Tests end-to-end**: Playwright sobre el sitio ya buildeado, con el navegador cacheado por
   versión.
+
+## Deploy
+
+El sitio se publica en **Vercel**, conectado al repositorio: cada push a `main` publica producción y
+cada pull request genera una preview propia.
+
+`vercel.json` fija el framework, el directorio de salida del export estático y unas cabeceras de
+seguridad, más caché largo para los assets, que llevan hash en el nombre.
+
+`next.config.ts` lee `BASE_PATH` del entorno. En Vercel el sitio vive en la raíz del dominio, así que
+la variable queda vacía y no hace falta configurar nada; el prefijo existe por si alguna vez se
+publica bajo un subdirectorio.
+
+> Los deployments nuevos arrancan con **Vercel Authentication** activada, que pide iniciar sesión
+> para verlos. Para que la landing sea pública hay que apagarla en
+> _Project → Settings → Deployment Protection_.
