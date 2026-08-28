@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Seam } from './basketball-texture';
 import {
+  BALL_PRESETS,
   SEAMS,
   SEAM_WIDTH,
   distanceToNearestSeam,
   distanceToSeam,
   grainAt,
+  heightAt,
+  seamFalloffAt,
   sphereAt,
 } from './basketball-texture';
 
@@ -50,10 +53,17 @@ describe('distanceToSeam', () => {
   });
 
   it('da cero sobre el círculo menor', () => {
-    const seam: Seam = { kind: 'small', polarAngle: 0.97 };
-    // Un punto cuyo ángulo polar respecto de +z es exactamente 0.97.
-    const point = { x: Math.sin(0.97), y: 0, z: Math.cos(0.97) };
+    const seam: Seam = { kind: 'small', axis: 'x', polarAngle: 0.97 };
+    // Un punto cuyo ángulo polar respecto de +x es exactamente 0.97.
+    const point = { x: Math.cos(0.97), y: 0, z: Math.sin(0.97) };
     expect(distanceToSeam(point, seam)).toBeCloseTo(0, 10);
+  });
+
+  it('los arcos de los costados van sobre el eje x, no sobre el que mira a la cámara', () => {
+    // Tomados sobre z se verían como un anillo concéntrico en vez de dos arcos.
+    const menores = SEAMS.filter((seam) => seam.kind === 'small');
+    expect(menores).toHaveLength(2);
+    for (const seam of menores) expect(seam.axis).toBe('x');
   });
 
   it('nunca devuelve una distancia negativa', () => {
@@ -71,6 +81,23 @@ describe('distanceToNearestSeam', () => {
   it('reconoce el cruce de las dos costuras rectas', () => {
     // Donde se cruzan el ecuador y el meridiano la distancia es cero.
     expect(distanceToNearestSeam({ x: 0, y: 0, z: 1 })).toBeCloseTo(0, 10);
+  });
+
+  it('dibuja tres costuras verticales al mirar la pelota de frente', () => {
+    /*
+     * Recorriendo una latitud de la cara visible tienen que aparecer tres
+     * cruces: la vertical del medio y los dos arcos de los costados. Se muestrea
+     * arriba del ecuador y no sobre él, porque el ecuador es una costura entero
+     * y ahí no habría nada que contar.
+     */
+    let cruces = 0;
+    let dentro = false;
+    for (let u = 0; u < 0.5; u += 0.0005) {
+      const cerca = distanceToNearestSeam(sphereAt(u, 0.3)) < SEAM_WIDTH;
+      if (cerca && !dentro) cruces++;
+      dentro = cerca;
+    }
+    expect(cruces).toBe(3);
   });
 
   it('deja gajos anchos entre costura y costura', () => {
@@ -118,5 +145,105 @@ describe('grainAt', () => {
   it('varía entre píxeles vecinos, que es lo que da el granulado', () => {
     const valores = new Set(Array.from({ length: 20 }, (_, i) => grainAt(i, 5)));
     expect(valores.size).toBeGreaterThan(15);
+  });
+});
+
+describe('seamFalloffAt', () => {
+  it('vale 1 en el centro de la costura', () => {
+    // Donde se cruzan el ecuador y el meridiano estamos en el fondo del surco.
+    expect(seamFalloffAt({ x: 0, y: 0, z: 1 })).toBeCloseTo(1, 6);
+  });
+
+  it('vale 0 lejos de toda costura', () => {
+    let masLejano = { punto: sphereAt(0, 0), distancia: 0 };
+    for (let u = 0; u < 1; u += 0.01) {
+      for (let v = 0; v < 1; v += 0.01) {
+        const punto = sphereAt(u, v);
+        const distancia = distanceToNearestSeam(punto);
+        if (distancia > masLejano.distancia) masLejano = { punto, distancia };
+      }
+    }
+    expect(seamFalloffAt(masLejano.punto)).toBe(0);
+  });
+
+  it('nunca se sale del rango 0 a 1', () => {
+    for (let u = 0; u < 1; u += 0.05) {
+      for (let v = 0; v < 1; v += 0.05) {
+        const valor = seamFalloffAt(sphereAt(u, v));
+        expect(valor).toBeGreaterThanOrEqual(0);
+        expect(valor).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+});
+
+describe('heightAt', () => {
+  const preset = BALL_PRESETS.cuero;
+  const ANCHO = 512;
+
+  it('hunde la costura respecto del cuero liso', () => {
+    // El cruce de las dos costuras rectas cae en el centro del mapa.
+    const enCostura = heightAt(ANCHO / 2, ANCHO / 4, ANCHO, preset);
+    const enPanel = heightAt(ANCHO / 8, ANCHO / 8, ANCHO, preset);
+    expect(enCostura).toBeLessThan(enPanel);
+  });
+
+  it('nunca devuelve una altura negativa', () => {
+    for (let x = 0; x < ANCHO; x += 7) {
+      for (let y = 0; y < ANCHO / 2; y += 7) {
+        expect(heightAt(x, y, ANCHO, preset)).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('envuelve en la longitud, así la costura no se corta en el borde', () => {
+    // Salirse por un lado del mapa tiene que devolver lo mismo que entrar por
+    // el otro: si no, se vería una línea vertical donde la textura se cierra.
+    expect(heightAt(-1, 40, ANCHO, preset)).toBeCloseTo(heightAt(ANCHO - 1, 40, ANCHO, preset), 10);
+    expect(heightAt(ANCHO, 40, ANCHO, preset)).toBeCloseTo(heightAt(0, 40, ANCHO, preset), 10);
+  });
+
+  it('el granulado del preset cambia cuánto varía la superficie', () => {
+    const variacion = (id: keyof typeof BALL_PRESETS) => {
+      const alturas = Array.from({ length: 200 }, (_, i) =>
+        heightAt(i * 3, 60, ANCHO, BALL_PRESETS[id]),
+      );
+      return Math.max(...alturas) - Math.min(...alturas);
+    };
+    // «Cuero» tiene el granulado al máximo y «estilizado» casi nada.
+    expect(variacion('cuero')).toBeGreaterThan(variacion('estilizado'));
+  });
+});
+
+describe('BALL_PRESETS', () => {
+  it('ofrece las tres variantes a comparar', () => {
+    expect(Object.keys(BALL_PRESETS)).toEqual(['cuero', 'nocturno', 'estilizado']);
+  });
+
+  it('cada variante tiene su propio material', () => {
+    const materiales = Object.values(BALL_PRESETS).map(
+      (preset) => `${preset.sheen}-${preset.sharpness}-${preset.grain}`,
+    );
+    expect(new Set(materiales).size).toBe(materiales.length);
+  });
+
+  it('van de mate a lustrosa en el mismo orden en los dos parámetros del brillo', () => {
+    // Un brillo más fuerte tiene que venir además más concentrado: fuerte y
+    // desparramado a la vez no se lee como lustre, se lee como niebla.
+    const { cuero, nocturno, estilizado } = BALL_PRESETS;
+    expect(cuero.sheen).toBeLessThan(nocturno.sheen);
+    expect(nocturno.sheen).toBeLessThan(estilizado.sheen);
+    expect(cuero.sharpness).toBeLessThan(nocturno.sharpness);
+    expect(nocturno.sharpness).toBeLessThan(estilizado.sharpness);
+  });
+
+  it('el brillo se mantiene dentro de un rango que no queme la imagen', () => {
+    for (const preset of Object.values(BALL_PRESETS)) {
+      expect(preset.sheen).toBeGreaterThan(0);
+      expect(preset.sheen).toBeLessThanOrEqual(1);
+      expect(preset.sharpness).toBeGreaterThanOrEqual(1);
+      expect(preset.rim).toBeGreaterThanOrEqual(0);
+      expect(preset.rim).toBeLessThanOrEqual(1);
+    }
   });
 });
