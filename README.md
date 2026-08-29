@@ -101,8 +101,14 @@ confeti, ni las chispas del fuego.
 El sitio se publica en **Vercel**, conectado al repositorio: cada push a `main` publica producción y
 cada pull request genera una preview propia.
 
-`vercel.json` fija el framework, el directorio de salida del export estático y unas cabeceras de
-seguridad, más caché largo para los assets, que llevan hash en el nombre.
+`vercel.json` fija el framework y unas cabeceras de seguridad, más caché largo para los assets, que
+llevan hash en el nombre.
+
+Lo que **no** fija, a propósito, es `outputDirectory`. Aunque `next.config.ts` exporta a `out/`, el
+preset de Next en Vercel busca su `routes-manifest.json` dentro del directorio de salida que se le
+declare, y ese archivo lo escribe `next build` en `.next/`. Apuntándolo a `out/` el deploy falla con
+«The file "out/routes-manifest.json" couldn't be found». El preset ya entiende `output: 'export'`
+solo: hay que dejarlo leer `.next/` y él publica lo exportado.
 
 `next.config.ts` lee `BASE_PATH` del entorno. En Vercel el sitio vive en la raíz del dominio, así que
 la variable queda vacía y no hace falta configurar nada; el prefijo existe por si alguna vez se
