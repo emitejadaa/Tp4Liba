@@ -108,13 +108,13 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
       <div className="lg:hidden">
         {/* `relative` por lo mismo que en la tabla de posiciones. */}
         <div className="border-line-card relative overflow-x-auto rounded-[14px] border">
-          <table className="w-full min-w-[420px] border-collapse text-left">
+          <table className="w-full min-w-[320px] border-collapse text-left sm:min-w-[420px]">
             <caption className="sr-only">Beneficios incluidos en cada plan de sponsoreo</caption>
             <thead>
               <tr className="border-line-card border-b">
                 <th
                   scope="col"
-                  className="text-dim px-4 py-4 text-xs font-semibold tracking-[0.12em] uppercase"
+                  className="text-dim px-2.5 py-4 text-xs font-semibold tracking-[0.12em] uppercase sm:px-4"
                 >
                   Beneficio
                 </th>
@@ -123,7 +123,7 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
                     key={tier.id}
                     scope="col"
                     className={cn(
-                      'font-display px-3 py-4 text-center text-xl font-bold',
+                      'font-display px-1.5 py-4 text-center text-lg font-bold sm:px-3 sm:text-xl',
                       TIER_TITLE_COLOR[tier.id] ?? 'text-chalk',
                       tier.featured && 'bg-[#142138]',
                     )}
@@ -136,7 +136,10 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
             <tbody>
               {SPONSOR_COMPARISON.map((row) => (
                 <tr key={row.perk} className="border-line-card border-b last:border-b-0">
-                  <th scope="row" className="text-soft px-4 py-4 text-[15px] font-normal">
+                  <th
+                    scope="row"
+                    className="text-soft px-2.5 py-4 text-sm font-normal sm:px-4 sm:text-[15px]"
+                  >
                     {row.perk}
                   </th>
                   {SPONSOR_TIERS.map((tier) => {
@@ -144,7 +147,10 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
                     return (
                       <td
                         key={tier.id}
-                        className={cn('px-3 py-4 text-center', tier.featured && 'bg-[#142138]')}
+                        className={cn(
+                          'px-1.5 py-4 text-center sm:px-3',
+                          tier.featured && 'bg-[#142138]',
+                        )}
                       >
                         <span className={included ? 'text-orange' : 'text-dim'}>
                           {included ? '●' : '—'}

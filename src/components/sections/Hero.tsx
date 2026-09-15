@@ -67,7 +67,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
       ref={sectionRef}
       data-sc-act="flow"
       data-sc-drift="#07111f"
-      className="border-line relative isolate overflow-hidden border-b pt-32 pb-20 lg:pt-40 lg:pb-26"
+      className="border-line relative isolate overflow-hidden border-b pt-[clamp(5.5rem,16svh,8rem)] pb-[clamp(3rem,10svh,5rem)] lg:pt-[clamp(6rem,18svh,10rem)] lg:pb-[clamp(4rem,12svh,6.5rem)]"
     >
       {/* Líneas de cancha del diseño: decorativas, no se anuncian al lector de pantalla. */}
       <motion.div
@@ -97,7 +97,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
           }
           className="flex min-w-0 flex-1 flex-col items-start gap-[21px]"
         >
-          <h1 className="text-[clamp(3rem,8vw,6rem)] leading-[0.95] font-bold tracking-[-0.01em]">
+          <h1 className="text-[clamp(3rem,min(8vw,16svh),6rem)] leading-[0.95] font-bold tracking-[-0.01em]">
             <KineticWords accent={HERO.titleAccent} accentClassName="text-orange">
               {HERO.titleLead}
             </KineticWords>
@@ -128,7 +128,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
 
         <motion.div
           style={prefersReduced ? undefined : { y: ballY, x: ballX, scale: ballScale }}
-          className="relative flex w-[280px] shrink-0 items-center justify-center sm:w-[360px] lg:w-[440px]"
+          className="relative flex w-full max-w-[280px] shrink-0 items-center justify-center sm:max-w-[360px] lg:w-[440px] lg:max-w-none"
         >
           <motion.div
             initial={prefersReduced ? undefined : { opacity: 0, scale: 0.85 }}

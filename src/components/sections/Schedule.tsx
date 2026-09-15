@@ -48,7 +48,7 @@ export function Schedule() {
                   aria-expanded={isOpen}
                   aria-controls={panelId}
                   onClick={() => setOpenId(isOpen ? null : match.id)}
-                  className="text-orange mt-4 inline-flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-white"
+                  className="text-orange mt-2 inline-flex min-h-11 items-center gap-1.5 py-3 text-sm font-semibold transition-colors hover:text-white"
                 >
                   Ver boxscore
                   <span

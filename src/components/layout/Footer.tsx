@@ -15,7 +15,9 @@ export function Footer() {
         <button
           type="button"
           onClick={backToTop}
-          className="group flex items-center gap-2.5"
+          // El relleno y el margen negativo se cancelan: el pie se ve igual y el
+          // blanco de toque pasa de 26 px de alto a más de 40.
+          className="group -my-2 flex items-center gap-2.5 py-2"
           aria-label="Volver al inicio de la página"
         >
           <LibaMark className="size-[26px] transition-transform duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:rotate-180" />

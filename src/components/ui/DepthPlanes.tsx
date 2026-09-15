@@ -116,8 +116,8 @@ export function DepthPlanes({
           className="depth-plate"
           style={{ '--plate-tilt': '26deg', '--plate-scale': '1' } as PlateStyle}
         >
-          <div className="via-line-strong h-px w-full bg-gradient-to-r from-transparent to-transparent" />
-          <div className="via-line-strong mt-[14vh] h-px w-full bg-gradient-to-r from-transparent to-transparent opacity-60" />
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-[rgb(148_163_184/0.2)] to-transparent" />
+          <div className="mt-[14vh] h-px w-full bg-gradient-to-r from-transparent via-[rgb(148_163_184/0.12)] to-transparent" />
         </div>
       </div>
 

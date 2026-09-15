@@ -30,6 +30,12 @@ function PointsCell({ value, active }: { value: number; active: boolean }) {
  * Se puede ordenar por partidos jugados, ganados o puntos; las filas se
  * reacomodan con una animación de layout para que se vea cuál se movió a dónde
  * en vez de que la tabla cambie de golpe.
+ *
+ * En teléfonos la tabla se aprieta en vez de desbordar: el ancho mínimo baja a
+ * 320 px y los números pierden relleno. Con el ancho de escritorio, un teléfono
+ * mostraba el puesto y el nombre del equipo y ni uno solo de los números, que
+ * son justamente a lo que se viene a esta sección; había que descubrir que la
+ * tabla se arrastraba para el costado.
  */
 export function Standings() {
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
@@ -58,7 +64,7 @@ export function Standings() {
         ref={ref}
         className="border-line-card bg-ink-raised relative overflow-x-auto rounded-xl border"
       >
-        <table className="w-full min-w-[560px] border-collapse">
+        <table className="w-full min-w-[320px] border-collapse sm:min-w-[560px]">
           <caption className="sr-only">
             Posiciones de la temporada 2026. Se puede ordenar por partidos jugados, ganados o
             puntos.
@@ -67,13 +73,13 @@ export function Standings() {
             <tr className="border-line-card border-b">
               <th
                 scope="col"
-                className="text-dim w-14 px-6 py-4 text-left text-xs font-semibold tracking-[0.14em] uppercase"
+                className="text-dim w-9 px-3 py-4 text-left text-xs font-semibold tracking-[0.14em] uppercase sm:w-14 sm:px-6"
               >
                 #
               </th>
               <th
                 scope="col"
-                className="text-dim px-2 py-4 text-left text-xs font-semibold tracking-[0.14em] uppercase"
+                className="text-dim px-1.5 py-4 text-left text-xs font-semibold tracking-[0.14em] uppercase sm:px-2"
               >
                 Equipo
               </th>
@@ -86,13 +92,19 @@ export function Standings() {
                     aria-sort={
                       isSorted ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'
                     }
-                    className="w-20 px-2 py-4 text-center"
+                    className="w-12 text-center sm:w-20"
                   >
+                    {/*
+                      El relleno va en el botón y no en la celda: así el blanco
+                      de toque es la celda entera —unos 48 px de alto— y no la
+                      línea de texto, que en un teléfono son 16 px imposibles de
+                      acertar con el pulgar.
+                    */}
                     <button
                       type="button"
                       onClick={() => setSort((current) => nextSort(current, column.key))}
                       className={cn(
-                        'inline-flex items-center gap-1 text-xs font-semibold tracking-[0.14em] uppercase transition-colors',
+                        'inline-flex w-full items-center justify-center gap-1 px-1 py-4 text-xs font-semibold tracking-[0.14em] uppercase transition-colors sm:px-2',
                         isSorted ? 'text-orange' : 'text-dim hover:text-soft',
                       )}
                     >
@@ -135,7 +147,7 @@ export function Standings() {
                 }}
                 className="border-line hover:bg-orange/5 hover:border-l-orange border-b border-l-2 border-l-transparent transition-colors last:border-b-0 motion-safe:hover:[transform:translateX(4px)]"
               >
-                <td className="px-6 py-4">
+                <td className="px-3 py-4 sm:px-6">
                   <span
                     className={cn(
                       'font-display text-lg font-bold',
@@ -145,12 +157,17 @@ export function Standings() {
                     {index + 1}
                   </span>
                 </td>
-                <th scope="row" className="text-soft px-2 py-4 text-left text-base font-medium">
+                <th
+                  scope="row"
+                  className="text-soft px-1.5 py-4 text-left text-[15px] font-medium sm:px-2 sm:text-base"
+                >
                   {row.team}
                 </th>
-                <td className="text-muted px-2 py-4 text-center tabular-nums">{row.played}</td>
-                <td className="text-muted px-2 py-4 text-center tabular-nums">{row.won}</td>
-                <td className="px-2 py-4 text-center">
+                <td className="text-muted px-1 py-4 text-center tabular-nums sm:px-2">
+                  {row.played}
+                </td>
+                <td className="text-muted px-1 py-4 text-center tabular-nums sm:px-2">{row.won}</td>
+                <td className="px-1 py-4 text-center sm:px-2">
                   <PointsCell value={row.points} active={inView} />
                 </td>
               </motion.tr>

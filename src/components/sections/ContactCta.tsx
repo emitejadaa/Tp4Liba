@@ -47,7 +47,7 @@ export function ContactCta() {
           <button
             type="button"
             onClick={copyEmail}
-            className="text-muted hover:text-orange mt-2.5 inline-flex items-center gap-2 text-xl font-semibold transition-colors"
+            className="text-muted hover:text-orange mt-1 inline-flex items-center gap-2 py-2.5 text-xl font-semibold transition-colors"
           >
             {SITE.email}
             <span aria-hidden="true" className="text-sm">

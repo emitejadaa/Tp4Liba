@@ -60,6 +60,16 @@ formulario), los hooks y el comportamiento de cada componente. Los end-to-end re
 construida en Chromium: navegación, acordeón, tabla ordenable, carga diferida del mapa, una partida
 del minijuego con el reloj controlado y el flujo completo del formulario de inscripción.
 
+`responsive.spec.ts` la recorre además en ocho tamaños —del teléfono plegado de 320 px a la pantalla
+de 1920, pasando por el teléfono **apaisado**, que es corto y es el caso que siempre se olvida— y
+verifica tres cosas en cada uno: que la página no se arrastre para el costado en ningún punto del
+scroll, que todo lo que se toca llegue a los 24×24 px del criterio 2.5.8 de las WCAG 2.2, y que el
+título y la acción principal entren enteros en la primera pantalla.
+
+`animaciones.spec.ts` verifica lo que sólo existe con movimiento: el parallax del encabezado, la
+profundidad de las secciones, los planos del fondo viajando a distinta velocidad, el tinte del fondo
+a lo largo del recorrido y la solapa que tapa el salto entre secciones.
+
 ```bash
 npm test        # unitarios
 npm run test:e2e   # end-to-end (buildea y sirve el export)
