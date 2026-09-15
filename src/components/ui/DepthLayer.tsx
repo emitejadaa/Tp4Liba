@@ -27,10 +27,17 @@ export function DepthLayer({
   const ref = useRef<HTMLDivElement>(null);
   const { enabled, style } = useSectionDepth(ref, { rotate, depth });
 
-  if (!enabled) return <div className={className}>{children}</div>;
+  // El atributo es el punto de enganche estable para los tests de profundidad:
+  // el selector estructural se rompía al sumarle planos decorativos a la sección.
+  if (!enabled)
+    return (
+      <div data-depth-layer className={className}>
+        {children}
+      </div>
+    );
 
   return (
-    <motion.div ref={ref} className={className} style={style}>
+    <motion.div data-depth-layer ref={ref} className={className} style={style}>
       {children}
     </motion.div>
   );

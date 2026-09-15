@@ -25,7 +25,7 @@ export function Rules() {
     );
 
   return (
-    <Section id="reglamento" aria-labelledby="reglamento-titulo" depth>
+    <Section id="reglamento" aria-labelledby="reglamento-titulo" depth mark="arc" drift="#08131f">
       <SectionHeading id="reglamento-titulo">Reglamento</SectionHeading>
 
       <div className="max-w-[940px]">

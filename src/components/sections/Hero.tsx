@@ -1,22 +1,26 @@
 'use client';
 
-import { Fragment, useRef } from 'react';
+import { useRef } from 'react';
 import { motion, useScroll, useSpring, useTransform } from 'motion/react';
 import { HeroBall } from '@/components/hero/HeroBall';
 import { DotBadge } from '@/components/ui/Badge';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import { ChalkLines } from '@/components/ui/ChalkLines';
+import { KineticWords } from '@/components/ui/KineticWords';
 import { HERO } from '@/data/hero';
+import { EASE } from '@/lib/anim/tokens';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { asset } from '@/lib/site';
-
-const EASE = [0.22, 1, 0.36, 1] as const;
 
 /**
  * Encabezado de la landing.
  *
- * La pelota y las líneas de cancha se mueven a distinta velocidad que el resto
- * al scrollear, lo que da profundidad sin tapar el texto. Con
- * `prefers-reduced-motion` todo queda quieto y en su posición final.
+ * Son tres planos a distinta distancia de la cámara y ninguno se mueve igual que
+ * los otros: las líneas de cancha se hunden hacia atrás, el texto se adelanta y
+ * se acuesta al salir, y la pelota cruza la pantalla rodando hacia afuera. Esa
+ * diferencia —de velocidad y de profundidad— es lo que hace que el encabezado se
+ * lea como un espacio y no como una imagen que sube.
+ *
+ * Con `prefers-reduced-motion` todo queda quieto y en su posición final.
  */
 export function Hero({ onRegister }: { onRegister?: () => void }) {
   const prefersReduced = useReducedMotion();
@@ -50,14 +54,20 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
    */
   const courtDepth = useTransform(smooth, [0, 1], [-120, -320]);
   const textDepth = useTransform(smooth, [0, 1], [0, 90]);
-
-  const words = HERO.titleLead.trim().split(' ');
+  /*
+   * Y al irse, el bloque de texto se acuesta hacia atrás. Es el mismo gesto con
+   * el que después entra cada sección, así que el encabezado no es una excepción
+   * dentro de la página: es la primera vez que se ve la regla.
+   */
+  const textTilt = useTransform(smooth, [0, 1], [0, -9]);
 
   return (
     <section
       id="inicio"
       ref={sectionRef}
-      className="border-line relative overflow-hidden border-b pt-32 pb-20 lg:pt-40 lg:pb-26"
+      data-sc-act="flow"
+      data-sc-drift="#07111f"
+      className="border-line relative isolate overflow-hidden border-b pt-32 pb-20 lg:pt-40 lg:pb-26"
     >
       {/* Líneas de cancha del diseño: decorativas, no se anuncian al lector de pantalla. */}
       <motion.div
@@ -67,44 +77,30 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
             ? undefined
             : { y: courtY, rotate: courtRotate, z: courtDepth, transformPerspective: 1200 }
         }
-        className="text-muted pointer-events-none absolute -top-16 -right-40 hidden w-[1100px] opacity-10 md:block"
+        className="text-soft pointer-events-none absolute -top-16 -right-40 z-0 hidden w-[1100px] opacity-[0.14] md:block"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={asset('/assets/court-lines.svg')} alt="" width={1100} height={760} />
+        <ChalkLines />
       </motion.div>
 
-      <div className="layout-container relative flex flex-col items-center gap-10 lg:flex-row lg:gap-[60px]">
+      <div className="layout-container relative z-10 flex flex-col items-center gap-10 lg:flex-row lg:gap-[60px]">
         <motion.div
           style={
             prefersReduced
               ? undefined
-              : { y: textY, opacity: textFade, z: textDepth, transformPerspective: 1200 }
+              : {
+                  y: textY,
+                  opacity: textFade,
+                  z: textDepth,
+                  rotateX: textTilt,
+                  transformPerspective: 1200,
+                }
           }
           className="flex min-w-0 flex-1 flex-col items-start gap-[21px]"
         >
           <h1 className="text-[clamp(3rem,8vw,6rem)] leading-[0.95] font-bold tracking-[-0.01em]">
-            {words.map((word, index) => (
-              // El espacio va como nodo de texto entre spans para que el título
-              // siga leyéndose «Bienvenidos a LIBA» y no todo pegado.
-              <Fragment key={word}>
-                <motion.span
-                  className="inline-block"
-                  initial={prefersReduced ? undefined : { opacity: 0, y: 28 }}
-                  animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.08, ease: EASE }}
-                >
-                  {word}
-                </motion.span>{' '}
-              </Fragment>
-            ))}
-            <motion.span
-              className="text-orange inline-block"
-              initial={prefersReduced ? undefined : { opacity: 0, y: 28 }}
-              animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: words.length * 0.08, ease: EASE }}
-            >
-              {HERO.titleAccent}
-            </motion.span>
+            <KineticWords accent={HERO.titleAccent} accentClassName="text-orange">
+              {HERO.titleLead}
+            </KineticWords>
           </h1>
 
           <p className="text-muted max-w-[520px] text-[19px] leading-[1.6]">{HERO.subtitle}</p>

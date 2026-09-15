@@ -6,14 +6,16 @@ scroll, hover y tap, además de un minijuego de tiro al aro.
 
 ## Stack
 
-| Herramienta                                                    | Para qué                                   |
-| -------------------------------------------------------------- | ------------------------------------------ |
-| [Next.js](https://nextjs.org) (App Router, `output: 'export'`) | Sitio estático con buen SEO                |
-| TypeScript en modo estricto                                    | Tipado de datos y lógica del juego         |
-| [Tailwind CSS v4](https://tailwindcss.com)                     | Estilos a partir de los tokens del diseño  |
-| [Motion](https://motion.dev)                                   | Reveals al scroll, parallax y transiciones |
-| [Vitest](https://vitest.dev) + Testing Library                 | Tests unitarios y de componentes           |
-| [Playwright](https://playwright.dev)                           | Tests end-to-end                           |
+| Herramienta                                                    | Para qué                                  |
+| -------------------------------------------------------------- | ----------------------------------------- |
+| [Next.js](https://nextjs.org) (App Router, `output: 'export'`) | Sitio estático con buen SEO               |
+| TypeScript en modo estricto                                    | Tipado de datos y lógica del juego        |
+| [Tailwind CSS v4](https://tailwindcss.com)                     | Estilos a partir de los tokens del diseño |
+| [Motion](https://motion.dev)                                   | Movimiento atado a React: scroll y layout |
+| [anime.js](https://animejs.com)                                | Coreografías sueltas y trazado de SVG     |
+| [scroll-craft](https://github.com/nateherkai/scroll-craft)     | Dispositivos de scroll por atributos      |
+| [Vitest](https://vitest.dev) + Testing Library                 | Tests unitarios y de componentes          |
+| [Playwright](https://playwright.dev)                           | Tests end-to-end                          |
 
 ## Puesta en marcha
 
@@ -44,7 +46,9 @@ src/
   components/    layout, secciones, primitivos de UI y minijuego
   hooks/         hooks de scroll, viewport y accesibilidad
   lib/           lógica pura (minijuego, ordenamientos, validación)
+  lib/anim/      vocabulario de movimiento y ciclo de las transiciones
   data/          contenido de la landing
+  vendor/        motor de scroll-craft, copiado sin editar
 public/assets/   imágenes e íconos exportados del diseño
 tests/e2e/       specs de Playwright
 ```
@@ -70,23 +74,73 @@ PW_CHROMIUM=/ruta/al/chrome npm run test:e2e
 
 ## Interacciones
 
-La landing está pensada para leerse scrolleando, así que casi todo se mueve:
+La landing está pensada para leerse scrolleando, así que el scroll es la línea de tiempo: casi todo
+lo que se mueve se mueve porque alguien está bajando por la página.
 
-- La pelota del encabezado es un objeto 3D real, hecho con Three.js: se la arrastra con el dedo o el
-  mouse y sigue girando por inercia al soltarla. La textura de cuero, con costuras y granulado, se
-  dibuja por código en vez de traerse como imagen.
-- Las tarjetas de El torneo y de Sponsors se inclinan en 3D hacia el puntero.
-- Los botones se corren unos píxeles hacia el cursor, con tope para no escaparse de abajo del mouse.
-- Los títulos de sección entran escalonados y las filas de la tabla en cascada.
-- El minijuego «Tirá al aro» tiene seis trayectorias, confeti al encestar y un fuego de racha que
+### Tres motores, tres trabajos
+
+Son tres librerías y cada una hace lo que hace bien. La curva de todas sale del mismo lugar,
+`lib/anim/tokens.ts`, así que dos cosas que arrancan juntas terminan juntas.
+
+- **Motion** maneja lo que está atado al estado de React: la profundidad de cada sección con el
+  scroll, el parallax del encabezado, el reacomodo de la tabla de posiciones, el diálogo de
+  inscripción.
+- **anime.js** maneja las coreografías sueltas, que son disparos y no estados: el título que se
+  arma palabra por palabra, las líneas de cancha que se dibujan como con tiza, la solapa de las
+  transiciones y los números del marcador que se dan vuelta al cambiar.
+- **El motor de scroll-craft** maneja los dispositivos de scroll declarativos. Se marca el HTML con
+  atributos `data-sc-*` y el motor los mueve desde un único bucle, sin pasar por React: los planos
+  de profundidad del fondo (`data-sc-parallax`), el tono del fondo de la página que viaja de sección
+  en sección (`data-sc-drift`) y la luz que sigue al puntero (`data-sc-spotlight`). Además publica en
+  cada sección su propio avance como la variable CSS `--sc-p`, y de ahí sale, con una sola regla de
+  CSS y cero JavaScript, la inclinación de todas las placas del fondo.
+
+El motor está copiado tal cual en `src/vendor/scrollcraft/`, que explica en su README por qué no se
+lo edita y cómo se lo tematiza con los tokens del diseño.
+
+### Sobre Barba.js
+
+**No está, y es a propósito.** Barba resuelve la navegación entre documentos: intercepta el click,
+baja la otra página, reemplaza el contenedor y anima el cambio. Esta landing es una sola ruta de
+Next exportada a un único HTML y sus enlaces son anclas dentro de esa misma página, así que no hay
+segundo documento que traer. Inicializarlo acá sería pedirle por red la misma página para reemplazar
+con ella el árbol que React está manejando: se rompe la hidratación y no se gana nada.
+
+Lo que sí se tomó es su modelo, que es la parte que vale. `lib/anim/transition.ts` implementa el
+mismo ciclo —`once`, `leave`, cambio, `enter`— con el salto de scroll en el lugar del cambio de
+contenedor: la solapa tapa, el salto pasa instantáneo por detrás y la solapa se va. Se llega igual de
+rápido que con un scroll suave y, a diferencia de un borrón de media página, se entiende que se
+cambió de lugar.
+
+### Lo que se ve
+
+- **Profundidad en todo el recorrido.** Cada sección llega desde el fondo, se planta de frente
+  mientras se la lee y se va al fondo al salir, con una meseta en el medio para que leer no sea leer
+  algo inclinado. Detrás de cada una hay tres planos —una marca de cancha, dos rayas y un resplandor—
+  que viajan a distinta velocidad y se inclinan con el avance: la diferencia entre ellos es lo que
+  arma la perspectiva.
+- **El fondo viaja.** El color de la página se va corriendo unos puntos de luminosidad de sección en
+  sección. No se nota en la transición; se nota al llegar abajo.
+- **Un solo idioma para «esto cambió».** La solapa que gira desde su borde de arriba está en las
+  filas de la tabla, en los números del marcador y en el pase entre secciones.
+- **La pelota del encabezado es un objeto 3D real**, hecho con Three.js: se la arrastra con el dedo o
+  el mouse y sigue girando por inercia al soltarla. No imita cuero: un solo naranja, las costuras
+  dibujadas como líneas de tinta y un canto encendido, sin granulado ni relieve ni reflejo. Las tres
+  variantes fotográficas quedaron en `basketball-texture.ts` como referencia, detrás de un dial.
+- **Las tarjetas se inclinan en 3D hacia el puntero**, y la luz que las cruza es una sola por sección
+  en vez de una por tarjeta.
+- **Los botones se corren unos píxeles hacia el cursor**, con tope para no escaparse de abajo del
+  mouse.
+- **Los títulos de sección entran girando desde el fondo**, con la etiqueta adelantándose al título.
+- **El minijuego «Tirá al aro»** tiene seis trayectorias, confeti al encestar y un fuego de racha que
   sube de nivel cada tres encestadas.
 
 Todo el movimiento son transformaciones y opacidad, y los efectos de puntero miden el elemento una
-sola vez al entrar. Medido scrolleando la página entera: 60 cuadros por segundo, ninguno por encima
-de 32 ms.
+sola vez al entrar.
 
 Con `prefers-reduced-motion` no se monta ninguna animación: ni los manejadores de puntero, ni el
-confeti, ni las chispas del fuego.
+confeti, ni las chispas del fuego, ni la solapa de las transiciones —los saltos del nav vuelven a ser
+un ancla común—, y las placas del fondo se quedan quietas.
 
 ## Integración continua
 

@@ -19,7 +19,13 @@ export function Venue() {
   const [mapLoaded, setMapLoaded] = useState(false);
 
   return (
-    <Section id="cancha" aria-labelledby="cancha-titulo" className="bg-[#0a1524]">
+    <Section
+      id="cancha"
+      aria-labelledby="cancha-titulo"
+      className="bg-[#0a1524]"
+      mark="key"
+      drift="#0a1524"
+    >
       <div className="flex flex-col items-start gap-12 lg:flex-row lg:items-center">
         <div className="w-full lg:w-[420px] lg:shrink-0">
           <SectionHeading id="cancha-titulo" eyebrow={VENUE.eyebrow} className="mb-4">

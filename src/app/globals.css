@@ -1,4 +1,14 @@
+/*
+ * Orden de capas. `scrollcraft` va declarada primero, así que es la de menos
+ * peso: las reglas de sus dispositivos (`[data-sc-*]`, `.sc-stage`, `.sc-split`)
+ * siguen valiendo, pero su reset de body y su escala tipográfica pierden contra
+ * el diseño de LIBA. Es lo que permite traer el motor sin editarlo y sin que se
+ * lleve puesta la estética.
+ */
+@layer scrollcraft, theme, base, components, utilities;
+
 @import 'tailwindcss';
+@import '../vendor/scrollcraft/scrollcraft.css' layer(scrollcraft);
 
 /*
  * Tokens del diseño de Figma (archivo SibJcrjAnuUr7GHmVFHweR).
@@ -40,6 +50,37 @@
   --duration-base: 320ms;
 }
 
+/*
+ * Tematizado del motor de scroll-craft: sus seis roles de color y sus dos
+ * familias tipográficas apuntan a los tokens del diseño, que es la vía que el
+ * propio motor documenta para adaptarlo a una marca. Va sin capa a propósito:
+ * una declaración fuera de capa le gana a cualquiera dentro de una.
+ */
+:root {
+  --sc-canvas: var(--color-ink);
+  --sc-surface: var(--color-ink-raised);
+  --sc-ink: var(--color-chalk);
+  --sc-ink-soft: var(--color-muted);
+  --sc-accent: var(--color-orange);
+  --sc-accent-ink: var(--color-ink);
+
+  --sc-font-display: var(--font-display);
+  --sc-font-text: var(--font-sans);
+  --sc-font-mono: var(--font-sans);
+
+  /* La métrica del cuerpo es la del sitio, no la del motor. */
+  --sc-t-base: 1rem;
+  --sc-leading-body: 1.5;
+  --sc-track-normal: normal;
+
+  --sc-r-sm: var(--radius-chip);
+  --sc-r-md: var(--radius-card);
+  --sc-gutter: 1.5rem;
+
+  /* La curva compartida por CSS, Motion y anime.js. */
+  --sc-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -48,7 +89,13 @@
   }
 
   body {
-    background-color: var(--color-ink);
+    /*
+     * El fondo sale de `--sc-canvas` y no del token directo para que el motor
+     * de scroll-craft pueda teñirlo: cada sección declara su `data-sc-drift` y
+     * el motor interpola esa variable mientras se la recorre. Sin sección
+     * teñida, `--sc-canvas` vale `--color-ink` y el fondo es el de siempre.
+     */
+    background-color: var(--sc-canvas);
     color: var(--color-soft);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -75,6 +122,26 @@
 }
 
 @layer utilities {
+  /*
+   * Placa de profundidad: la pieza con la que se arma la perspectiva del scroll.
+   *
+   * La inclinación sale de `--sc-p`, el avance de la sección que publica el
+   * motor de scroll-craft en el `<section>` y que se hereda hasta acá. Que la
+   * cuenta viva en CSS y no en JavaScript no es una cuestión de elegancia: son
+   * decenas de placas moviéndose a la vez y ninguna cuesta un solo cuadro de
+   * JavaScript, porque el navegador las compone solo.
+   *
+   * `--plate-tilt` es cuánto gira de punta a punta del recorrido y
+   * `--plate-scale`, cuánto se agranda para tapar lo que el giro descubre por
+   * los costados.
+   */
+  .depth-plate {
+    transform: perspective(1200px) rotateX(calc((0.5 - var(--sc-p, 0.5)) * var(--plate-tilt, 0deg)))
+      scale(var(--plate-scale, 1));
+    transform-origin: 50% 50%;
+    will-change: transform;
+  }
+
   /* Ancho de contenido del diseño: 1440 con 80px de gutter. */
   .layout-container {
     margin-inline: auto;
@@ -104,6 +171,11 @@
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  /* Las placas se quedan donde están: el giro es justo lo que se pidió no ver. */
+  .depth-plate {
+    transform: scale(var(--plate-scale, 1)) !important;
   }
 
   *,

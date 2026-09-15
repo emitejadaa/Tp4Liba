@@ -18,14 +18,21 @@ export function TournamentInfo() {
   const prefersReduced = useReducedMotion();
 
   return (
-    <Section id="torneo" aria-labelledby="torneo-titulo" depth>
+    <Section
+      id="torneo"
+      aria-labelledby="torneo-titulo"
+      depth
+      mark="circle"
+      drift="#081420"
+      spotlight
+    >
       <SectionHeading id="torneo-titulo" aside="Temporada 2026">
         El torneo
       </SectionHeading>
 
       <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {TOURNAMENT_FACTS.map(({ index, title, description, Icon }, position) => (
-          <Reveal3D as="li" key={title} className="group/tilt group" delay={position * 0.09}>
+          <Reveal3D as="li" key={title} className="group" delay={position * 0.09}>
             <TiltCard className="bg-ink-raised border-line-card group-hover:border-orange relative flex h-full flex-col overflow-hidden rounded-xl border p-[29px] transition-colors duration-300">
               <span
                 aria-hidden="true"

@@ -68,6 +68,21 @@ const GROUND: Rgb = [0.015, 0.016, 0.027];
 /** Color del borde encendido, que despega la silueta del fondo oscuro. */
 const RIM: Rgb = [0.55, 0.68, 1];
 
+/**
+ * Nivel parejo al que colapsa el sombreado cuando el acabado es gráfico.
+ *
+ * Con `flat` en 1 la esfera deja de tener un lado iluminado y otro en sombra:
+ * queda de un solo tono y lo único que delata que gira son las costuras
+ * cruzando. Eso es exactamente lo que se busca —un objeto dibujado, no uno
+ * fotografiado—, y el encendido de borde es lo que impide que se lea como un
+ * círculo plano, porque le devuelve el canto.
+ *
+ * No es 1: a tono pleno el naranja de la paleta se quema contra el fondo oscuro
+ * y la silueta pierde el borde. Apenas por debajo, conserva el color exacto del
+ * token y deja lugar para que el borde encienda.
+ */
+const FLAT_LEVEL = 0.86;
+
 function normalize([x, y, z]: readonly [number, number, number]): [number, number, number] {
   const length = Math.hypot(x, y, z) || 1;
   return [x / length, y / length, z / length];
@@ -107,6 +122,17 @@ export function shadeNormal(
     r += light.color[0] * (diffuse + specular);
     g += light.color[1] * (diffuse + specular);
     b += light.color[2] * (diffuse + specular);
+  }
+
+  /*
+   * Aplanado. Va acá, después del modelado y antes del borde: el modelado es lo
+   * que se quiere perder y el borde, lo que hay que conservar. Mezclado al
+   * revés, el canto se apagaría junto con el resto.
+   */
+  if (preset.flat > 0) {
+    r += (FLAT_LEVEL - r) * preset.flat;
+    g += (FLAT_LEVEL - g) * preset.flat;
+    b += (FLAT_LEVEL - b) * preset.flat;
   }
 
   // Borde encendido: cuanto más de canto se ve la superficie, más se enciende.

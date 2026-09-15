@@ -21,7 +21,7 @@ export function Schedule() {
   const prefersReduced = useReducedMotion();
 
   return (
-    <Section id="cronograma" aria-labelledby="cronograma-titulo" depth>
+    <Section id="cronograma" aria-labelledby="cronograma-titulo" depth mark="key" drift="#07111f">
       <SectionHeading id="cronograma-titulo" aside={SCHEDULE.when}>
         Cronograma · {SCHEDULE.round}
       </SectionHeading>

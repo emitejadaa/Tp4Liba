@@ -141,7 +141,7 @@ test.describe('Profundidad 3D', () => {
   test('las secciones llegan desde el fondo y se plantan al centro', async ({ page }) => {
     await page.goto('/');
 
-    const capa = page.locator('#tabla > div');
+    const capa = page.locator('#tabla [data-depth-layer]');
 
     /*
      * Se mide el ancho que ocupa en pantalla y no la matriz de la
@@ -225,5 +225,138 @@ test.describe('Sin desbordes laterales', () => {
       return x;
     });
     expect(desborde).toBe(0);
+  });
+});
+
+test.describe('Planos de profundidad', () => {
+  test('el fondo de cada sección se mueve a distinta velocidad que el contenido', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    /*
+     * Los tres planos decorativos los mueve el motor de scroll-craft leyendo el
+     * avance de la sección. Lo que arma la perspectiva no es que se muevan, sino
+     * que se muevan **distinto**: si los tres viajaran lo mismo serían un fondo
+     * pegado, no tres planos a distinta distancia.
+     */
+    const desplazamientos = async () =>
+      page.evaluate(() => {
+        const seccion = document.getElementById('torneo')!;
+        return [...seccion.querySelectorAll('[data-sc-parallax]')].map(
+          (plano) => new DOMMatrixReadOnly(getComputedStyle(plano).transform).m42,
+        );
+      });
+
+    const irA = (fraccion: number) =>
+      page.evaluate((f) => {
+        const seccion = document.getElementById('torneo')!;
+        const top = seccion.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: top - window.innerHeight * f, behavior: 'instant' });
+      }, fraccion);
+
+    await irA(0.8);
+    await page.waitForTimeout(400);
+    const arriba = await desplazamientos();
+
+    await irA(0.1);
+    await page.waitForTimeout(400);
+    const abajo = await desplazamientos();
+
+    expect(arriba).toHaveLength(3);
+    const recorridos = arriba.map((valor, indice) => abajo[indice]! - valor);
+
+    // Ninguno se queda quieto...
+    for (const recorrido of recorridos) expect(Math.abs(recorrido)).toBeGreaterThan(5);
+    // ...y el de adelante viaja para el otro lado que los del fondo.
+    expect(Math.sign(recorridos[0]!)).not.toBe(Math.sign(recorridos[2]!));
+  });
+
+  test('el fondo de la página cambia de tono a lo largo del recorrido', async ({ page }) => {
+    await page.goto('/');
+
+    const fondo = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+    await page.waitForTimeout(400);
+    const enElInicio = await fondo();
+
+    await page.evaluate(() => {
+      const seccion = document.getElementById('cancha')!;
+      window.scrollTo({
+        top: seccion.getBoundingClientRect().top + window.scrollY,
+        behavior: 'instant',
+      });
+    });
+    await page.waitForTimeout(500);
+
+    expect(await fondo()).not.toBe(enElInicio);
+  });
+});
+
+test.describe('Pase entre secciones', () => {
+  test('el salto del nav pasa tapado por la solapa y termina en la sección', async ({ page }) => {
+    await page.goto('/');
+
+    /*
+     * La solapa dura menos de un segundo, así que en vez de espiarla desde
+     * afuera —donde cada consulta es un viaje de ida y vuelta— se mide desde
+     * adentro de la página: un bucle de cuadros anota cuánto llegó a tapar.
+     *
+     * `m33` es el coseno del giro sobre el eje horizontal: vale 1 con la solapa
+     * plana contra la pantalla y casi 0 cuando está de canto. Multiplicado por
+     * la opacidad, un valor cerca de 1 significa «tapó de verdad».
+     */
+    await page.evaluate(() => {
+      const solapa = document.querySelector('[data-testid="section-flap"]')!;
+      const ventana = window as unknown as { __cobertura: number };
+      ventana.__cobertura = 0;
+      const mirar = () => {
+        const estilo = getComputedStyle(solapa);
+        const giro = new DOMMatrixReadOnly(estilo.transform).m33;
+        ventana.__cobertura = Math.max(ventana.__cobertura, Number(estilo.opacity) * giro);
+        requestAnimationFrame(mirar);
+      };
+      mirar();
+    });
+
+    await page
+      .getByRole('navigation', { name: 'Navegación principal' })
+      .getByRole('link', { name: 'Reglamento' })
+      .click();
+
+    await expect(page.locator('#reglamento')).toBeInViewport();
+    expect(page.url()).toContain('#reglamento');
+
+    const cobertura = await page.evaluate(
+      () => (window as unknown as { __cobertura: number }).__cobertura,
+    );
+    expect(cobertura).toBeGreaterThan(0.9);
+  });
+
+  test('con movimiento reducido el salto es el de siempre, sin solapa', async ({ browser }) => {
+    const contexto = await browser.newContext({ reducedMotion: 'reduce' });
+    const page = await contexto.newPage();
+    await page.goto('/');
+
+    await expect(page.locator('[data-testid="section-flap"]')).toHaveCount(0);
+    await page
+      .getByRole('navigation', { name: 'Navegación principal' })
+      .getByRole('link', { name: 'Tabla' })
+      .click();
+    await expect(page.locator('#tabla')).toBeInViewport();
+
+    await contexto.close();
+  });
+});
+
+test.describe('Pelota del encabezado', () => {
+  test('usa el acabado gráfico y no uno de cuero', async ({ page }) => {
+    await page.goto('/');
+    // La variante decide el material entero: sin granulado, sin relieve y sin
+    // reflejo. Es lo que la mantiene en línea con el resto de la página.
+    await expect(page.locator('#inicio [data-ball-preset]')).toHaveAttribute(
+      'data-ball-preset',
+      'grafico',
+    );
   });
 });

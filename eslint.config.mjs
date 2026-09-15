@@ -10,6 +10,8 @@ const config = [
       'playwright-report/**',
       'test-results/**',
       'next-env.d.ts',
+      // El motor de scroll-craft se vendoriza sin tocar; ver su README.
+      'src/vendor/scrollcraft/scrollcraft.js',
     ],
   },
   ...nextCoreWebVitals,

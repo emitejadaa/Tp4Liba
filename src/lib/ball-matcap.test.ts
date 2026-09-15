@@ -82,6 +82,38 @@ describe('shadeNormal', () => {
   it('es determinista', () => {
     expect(shadeAt(0.3, 0.2)).toEqual(shadeAt(0.3, 0.2));
   });
+
+  it('la variante gráfica no modela: el lado de la luz y el opuesto se ven igual', () => {
+    /*
+     * Es lo contrario de lo que se le pide a un matcap fotográfico, y es el
+     * punto: sin lado iluminado ni lado en sombra, la esfera deja de leerse como
+     * una foto de una pelota y pasa a leerse como una pelota dibujada.
+     */
+    const alaLuz = luma(shadeAt(-0.5, 0.5, 'grafico'));
+    const enSombra = luma(shadeAt(0.5, -0.5, 'grafico'));
+    expect(Math.abs(alaLuz - enSombra)).toBeLessThan(0.02);
+
+    // Y que sea parejo no es que sea oscuro: el tono queda alto y limpio.
+    expect(alaLuz).toBeGreaterThan(0.7);
+  });
+
+  it('la variante gráfica conserva el canto, que es lo que le devuelve el volumen', () => {
+    const centro = luma(shadeAt(0, 0, 'grafico'));
+    const canto = luma(shadeAt(0.99, 0, 'grafico'));
+    expect(canto).toBeGreaterThan(centro);
+  });
+
+  it('el aplanado es un dial y no un interruptor', () => {
+    const contraste = (flat: number) => {
+      const preset = { ...BALL_PRESETS.nocturno, flat };
+      const en = (nx: number, ny: number) =>
+        luma(shadeNormal(nx, ny, Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny)), preset));
+      return Math.abs(en(-0.5, 0.5) - en(0.5, -0.5));
+    };
+
+    expect(contraste(0.5)).toBeLessThan(contraste(0));
+    expect(contraste(1)).toBeLessThan(contraste(0.5));
+  });
 });
 
 describe('LIGHTS', () => {

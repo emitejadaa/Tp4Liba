@@ -139,3 +139,29 @@ export function MailIcon(props: IconProps) {
     </svg>
   );
 }
+
+/**
+ * Las líneas de la cancha del diseño, ahora como componente.
+ *
+ * Venía como `<img>` a un SVG externo, y ahí el `currentColor` de sus trazos no
+ * resuelve contra el color del texto de la página sino contra el del propio
+ * archivo: se dibujaba negro sobre un fondo casi negro, o sea nada. Inline
+ * hereda el color, que es lo que lo convierte en un plano de profundidad de
+ * verdad.
+ */
+export function CourtLines(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 880 607.75"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.75}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path d="M715 1.375H165V331.375H715V1.375Z" />
+      <path d="M0 1.375H880M165 331.375C165 404.31 193.973 474.257 245.546 525.829C297.118 577.402 367.065 606.375 440 606.375C512.935 606.375 582.882 577.402 634.454 525.829C686.027 474.257 715 404.31 715 331.375" />
+    </svg>
+  );
+}

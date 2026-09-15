@@ -5,3 +5,7 @@ coverage
 playwright-report
 test-results
 public/assets
+
+# El motor de scroll-craft se vendoriza sin tocar; ver su README.
+src/vendor/scrollcraft/scrollcraft.js
+src/vendor/scrollcraft/scrollcraft.css

@@ -13,7 +13,9 @@ import { Sponsors } from '@/components/sections/Sponsors';
 import { Standings } from '@/components/sections/Standings';
 import { TournamentInfo } from '@/components/sections/TournamentInfo';
 import { Venue } from '@/components/sections/Venue';
+import { ScrollCraftRoot } from '@/components/ui/ScrollCraftRoot';
 import { ScrollProgress } from '@/components/ui/ScrollProgress';
+import { SectionTransition } from '@/components/ui/SectionTransition';
 import type { RegistrationKind } from '@/lib/validation';
 
 /*
@@ -45,6 +47,8 @@ export default function Home() {
 
   return (
     <>
+      <ScrollCraftRoot />
+      <SectionTransition />
       <ScrollProgress />
       <SiteNav onRegister={openTeam} />
       <main>

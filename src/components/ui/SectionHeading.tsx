@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { EASE } from '@/lib/anim/tokens';
 import { cn } from '@/lib/cn';
 
 type SectionHeadingProps = {
@@ -15,14 +16,17 @@ type SectionHeadingProps = {
   className?: string;
 };
 
-const EASE = [0.22, 1, 0.36, 1] as const;
-
 /**
  * Título de sección con su etiqueta y su nota al costado.
  *
- * Entra desde abajo al llegar al viewport, con la etiqueta adelantándose al
- * título y la nota cerrando: el escalonado hace que la sección se lea en el
- * mismo orden en que se escribió.
+ * Entra girando desde el fondo al llegar al viewport, con la etiqueta
+ * adelantándose al título y la nota cerrando: el escalonado hace que la sección
+ * se lea en el mismo orden en que se escribió.
+ *
+ * Las tres piezas comparten la misma perspectiva y el mismo eje de giro, así que
+ * se leen como una sola tapa que se endereza y no como tres cosas girando cada
+ * una por su cuenta. Es el mismo gesto con el que se va el encabezado y con el
+ * que entran las tarjetas: una sola idea de cámara para toda la página.
  */
 export function SectionHeading({ id, children, aside, eyebrow, className }: SectionHeadingProps) {
   const prefersReduced = useReducedMotion();
@@ -31,14 +35,14 @@ export function SectionHeading({ id, children, aside, eyebrow, className }: Sect
     prefersReduced
       ? {}
       : {
-          initial: { opacity: 0, y: 22 },
-          whileInView: { opacity: 1, y: 0 },
+          initial: { opacity: 0, y: 22, rotateX: 26, z: -90, transformPerspective: 1000 },
+          whileInView: { opacity: 1, y: 0, rotateX: 0, z: 0, transformPerspective: 1000 },
           viewport: { once: true, amount: 0.6 },
-          transition: { duration: 0.5, delay, ease: EASE },
+          transition: { duration: 0.58, delay, ease: EASE },
         };
 
   return (
-    <div className={cn('mb-10', className)}>
+    <div className={cn('mb-10 [transform-style:preserve-3d]', className)}>
       {eyebrow ? (
         <motion.p
           className="text-orange mb-3 text-xs font-bold tracking-[0.18em] uppercase"

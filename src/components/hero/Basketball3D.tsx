@@ -56,10 +56,11 @@ function Ball({ preset, scroll }: BallProps) {
   const maps = useMemo(() => {
     const canvases = createBasketballMaps(preset);
     const color = new THREE.CanvasTexture(canvases.color);
-    const normal = new THREE.CanvasTexture(canvases.normal);
+    const normal = preset.normalStrength > 0 ? new THREE.CanvasTexture(canvases.normal) : null;
 
     // El mapa da la vuelta completa, así que se repite a lo largo de la longitud.
     for (const texture of [color, normal]) {
+      if (!texture) continue;
       texture.wrapS = THREE.RepeatWrapping;
       texture.anisotropy = 4;
     }
@@ -79,22 +80,28 @@ function Ball({ preset, scroll }: BallProps) {
     const context = element.getContext('2d');
     if (context) {
       const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
-      // El corte cae rápido: una sombra que se desvanece de a poco se lee como
-      // suciedad en el fondo en vez de como apoyo sobre el piso.
+      /*
+       * El corte cae rápido: una sombra que se desvanece de a poco se lee como
+       * suciedad en el fondo en vez de como apoyo sobre el piso. Con acabado
+       * gráfico cae todavía más rápido, casi como una mancha recortada: la
+       * penumbra larga es de las cosas que más delatan un render que quiere
+       * pasar por foto.
+       */
+      const spread = 1 - preset.flat * 0.45;
       gradient.addColorStop(0, 'rgba(0,0,0,0.85)');
-      gradient.addColorStop(0.35, 'rgba(0,0,0,0.42)');
-      gradient.addColorStop(0.7, 'rgba(0,0,0,0.08)');
+      gradient.addColorStop(0.35 * spread, 'rgba(0,0,0,0.42)');
+      gradient.addColorStop(0.7 * spread, 'rgba(0,0,0,0.08)');
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
       context.fillStyle = gradient;
       context.fillRect(0, 0, 128, 128);
     }
     return new THREE.CanvasTexture(element);
-  }, []);
+  }, [preset.flat]);
 
   // Texturas y mapas reservan memoria de video: hay que liberarlos al desmontar.
   useEffect(
     () => () => {
-      Object.values(maps).forEach((texture) => texture.dispose());
+      Object.values(maps).forEach((texture) => texture?.dispose());
       shadowTexture.dispose();
     },
     [maps, shadowTexture],
@@ -197,7 +204,7 @@ function Ball({ preset, scroll }: BallProps) {
     // hace leer la altura, más que la posición de la pelota en sí.
     const closeness = Math.max(0, 1 - height / 2.2);
     shade.scale.set(0.62 + closeness * 0.45, 0.55 + closeness * 0.5, 1);
-    (shade.material as THREE.MeshBasicMaterial).opacity = 0.08 + closeness * 0.62;
+    (shade.material as THREE.MeshBasicMaterial).opacity = (0.08 + closeness * 0.62) * preset.shadow;
     // Queda pegada al piso mientras la pelota sube, que es lo que la delata.
     shade.position.y = -1.24 - height;
   });
@@ -213,14 +220,17 @@ function Ball({ preset, scroll }: BallProps) {
           versión con mapa de entorno filtrado corría a 36 cuadros por segundo y
           ésta a 60, con la pelota viéndose igual o mejor: toda la iluminación
           entra en una lectura de textura en vez de un muestreo de cubemap por
-          nivel de detalle. El mapa de normales sigue puesto, que es lo que hace
-          que el granulado se lea como cuero.
+          nivel de detalle.
+
+          El mapa de normales es lo que hace que el granulado se lea como cuero,
+          así que en el acabado gráfico directamente no se pasa: con relieve en
+          cero sería una textura entera muestreada por píxel para no desviar la
+          luz ni un grado.
         */}
         <meshMatcapMaterial
           matcap={maps.matcap}
           map={maps.color}
-          normalMap={maps.normal}
-          normalScale={new THREE.Vector2(1, 1)}
+          {...(maps.normal ? { normalMap: maps.normal, normalScale: new THREE.Vector2(1, 1) } : {})}
         />
       </mesh>
 
@@ -257,7 +267,7 @@ function Ball({ preset, scroll }: BallProps) {
  */
 export default function Basketball3D({
   scroll,
-  preset = 'nocturno',
+  preset = 'grafico',
 }: {
   scroll?: ScrollSource;
   preset?: BallPresetId;

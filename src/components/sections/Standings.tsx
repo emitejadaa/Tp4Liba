@@ -42,7 +42,7 @@ export function Standings() {
   const rows = sortStandings(STANDINGS, sort.key, sort.direction);
 
   return (
-    <Section id="tabla" aria-labelledby="tabla-titulo" depth>
+    <Section id="tabla" aria-labelledby="tabla-titulo" depth mark="circle" drift="#081522">
       <SectionHeading id="tabla-titulo" aside="Datos de ejemplo · la temporada no arrancó">
         Tabla de posiciones
       </SectionHeading>

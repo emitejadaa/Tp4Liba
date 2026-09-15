@@ -38,7 +38,7 @@ export function ContactCta() {
   };
 
   return (
-    <Section id="contacto" aria-labelledby="contacto-titulo">
+    <Section id="contacto" aria-labelledby="contacto-titulo" mark="circle" drift="#07111f">
       <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
         <Reveal>
           <h2 id="contacto-titulo" className="text-4xl font-bold md:text-[2.75rem]">

@@ -14,6 +14,12 @@
  * plástico: lo que la hace parecer cuero es que el relieve desvíe la luz, y eso
  * lo aporta el mapa de normales. La luz que rebota en ese relieve sale del
  * matcap, en `ball-matcap.ts`.
+ *
+ * Todo eso es maquinaria de realismo, y la variante que la landing usa hoy la
+ * apaga entera: `grafico` tiene el granulado en cero, el relieve en cero y las
+ * costuras dibujadas como líneas y no como surcos. La pelota de la página no
+ * imita cuero, es un objeto de diseño que gira. La maquinaria queda porque es lo
+ * que hace que `flat` sea un dial y no una reescritura.
  */
 
 /** Las cuatro costuras de una pelota de ocho paneles. */
@@ -71,11 +77,31 @@ export type BallPreset = {
   sharpness: number;
   /** Cuánto se enciende el borde contra el fondo. */
   rim: number;
+  /**
+   * Cuánto se aplana el acabado, de 0 (cuero fotográfico) a 1 (objeto gráfico).
+   *
+   * Es un solo dial y toca tres cosas, porque las tres son la misma decisión:
+   * apaga el modelado del matcap —la esfera deja de tener un lado iluminado y
+   * otro en sombra—, saca la oclusión horneada del borde de la costura y
+   * endurece esa costura hasta que se lee como una línea dibujada.
+   */
+  flat: number;
+  /**
+   * Opacidad de la sombra de contacto, relativa a la de la variante de cuero.
+   *
+   * Una mancha difusa abajo es de las cosas que más gritan «foto». En la
+   * variante gráfica queda apenas como apoyo, lo justo para que la pelota no
+   * flote.
+   */
+  shadow: number;
 };
 
 /**
- * Las tres variantes a comparar. Están acá y no en el componente para que
- * cambiar de una a otra sea cambiar una constante, y no reescribir la escena.
+ * Las variantes a comparar. Están acá y no en el componente para que cambiar de
+ * una a otra sea cambiar una constante, y no reescribir la escena.
+ *
+ * Las tres primeras son grados de realismo y quedaron como referencia; la que
+ * usa la landing es `grafico`, que es la única que no intenta parecer cuero.
  */
 export const BALL_PRESETS = {
   cuero: {
@@ -89,6 +115,8 @@ export const BALL_PRESETS = {
     sheen: 0.12,
     sharpness: 11,
     rim: 0.3,
+    flat: 0,
+    shadow: 1,
   },
   nocturno: {
     id: 'nocturno',
@@ -101,6 +129,8 @@ export const BALL_PRESETS = {
     sheen: 0.26,
     sharpness: 14,
     rim: 0.5,
+    flat: 0,
+    shadow: 1,
   },
   estilizado: {
     id: 'estilizado',
@@ -113,6 +143,24 @@ export const BALL_PRESETS = {
     sheen: 0.5,
     sharpness: 34,
     rim: 0.72,
+    flat: 0,
+    shadow: 1,
+  },
+  grafico: {
+    id: 'grafico',
+    label: 'Gráfico',
+    // El naranja y el azul de la paleta, sin intermedios: la pelota está hecha
+    // de los mismos dos colores que el resto de la página.
+    leather: [249, 115, 22],
+    seam: [7, 17, 31],
+    grain: 0,
+    seamDepth: 0,
+    normalStrength: 0,
+    sheen: 0,
+    sharpness: 1,
+    rim: 0.35,
+    flat: 1,
+    shadow: 0.32,
   },
 } as const satisfies Record<string, BallPreset>;
 
@@ -186,6 +234,31 @@ export function seamFalloffAt(point: SpherePoint): number {
 }
 
 /**
+ * Cuánta tinta de costura lleva un punto, de 0 a 1.
+ *
+ * Con acabado de cuero es el mismo desvanecimiento del surco: el borde se apaga
+ * suave porque un surco no tiene contorno. Con acabado gráfico la curva se
+ * endurece hasta que la costura es una línea con borde, que es lo que separa
+ * «una pelota fotografiada» de «una pelota dibujada». No llega a ser un escalón
+ * a propósito: sin nada de desvanecimiento la línea queda dentada al acercarse.
+ */
+export function seamInkAt(point: SpherePoint, preset: BallPreset): number {
+  const falloff = seamFalloffAt(point);
+  if (preset.flat <= 0) return falloff;
+
+  /*
+   * El surco se apaga como `(1 - d/ancho)²`, o sea que más de la mitad del
+   * trazo es degradé. Eso está bien para una hendidura y mal para una línea:
+   * dibujada así se ve borrosa. Acá se remapea ese mismo desvanecimiento para
+   * que el cuerpo del trazo llegue lleno hasta cerca del borde y el degradé
+   * quede reducido a una franja fina, que es lo único que hace falta para que
+   * no se dentele al acercarse.
+   */
+  const hard = Math.max(0, Math.min(1, (falloff - 0.03) / 0.13));
+  return falloff + (hard - falloff) * preset.flat;
+}
+
+/**
  * Altura de la superficie en una coordenada de textura, de 0 a 1.
  *
  * Es el campo del que salen tanto el relieve como el mapa de normales: el
@@ -247,7 +320,7 @@ export function createBasketballMaps(preset: BallPreset): BasketballMaps {
   for (let y = 0; y < HEIGHT; y++) {
     for (let x = 0; x < WIDTH; x++) {
       const point = sphereAt(x / WIDTH, y / HEIGHT);
-      const seam = seamFalloffAt(point);
+      const seam = seamInkAt(point, preset);
       const grain = grainAt(x, y);
       const index = (y * WIDTH + x) * 4;
 
@@ -258,8 +331,9 @@ export function createBasketballMaps(preset: BallPreset): BasketballMaps {
       let b = leatherB + grainLift * 0.6;
 
       // La costura no sólo cambia de color: el surco recibe menos luz ambiente,
-      // así que se hornea algo de oclusión en el borde además del fondo.
-      const occlusion = 1 - seam * 0.22;
+      // así que se hornea algo de oclusión en el borde además del fondo. En el
+      // acabado gráfico no hay surco, así que tampoco hay nada que ocluir.
+      const occlusion = 1 - seam * 0.22 * (1 - preset.flat);
       r = (r + (seamR - r) * seam) * occlusion;
       g = (g + (seamG - g) * seam) * occlusion;
       b = (b + (seamB - b) * seam) * occlusion;

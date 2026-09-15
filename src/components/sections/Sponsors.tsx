@@ -33,6 +33,9 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
       aria-labelledby="sponsors-titulo"
       className="border-b bg-[#0a1524]"
       depth
+      mark="arc"
+      drift="#0a1524"
+      spotlight
     >
       <SectionHeading id="sponsors-titulo" eyebrow="Sponsors" className="max-w-[720px]">
         Tu marca en la cancha
@@ -48,7 +51,6 @@ export function Sponsors({ onSponsor }: SponsorsProps) {
           <Reveal3D
             as="li"
             key={tier.id}
-            className="group/tilt"
             delay={index * 0.11}
             // La de Oro llega desde más atrás y un toque después: entra última y
             // desde más lejos, que es lo que la despega de las otras dos.

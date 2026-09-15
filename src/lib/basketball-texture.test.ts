@@ -9,6 +9,7 @@ import {
   grainAt,
   heightAt,
   seamFalloffAt,
+  seamInkAt,
   sphereAt,
 } from './basketball-texture';
 
@@ -216,8 +217,8 @@ describe('heightAt', () => {
 });
 
 describe('BALL_PRESETS', () => {
-  it('ofrece las tres variantes a comparar', () => {
-    expect(Object.keys(BALL_PRESETS)).toEqual(['cuero', 'nocturno', 'estilizado']);
+  it('ofrece las tres variantes de cuero más la gráfica', () => {
+    expect(Object.keys(BALL_PRESETS)).toEqual(['cuero', 'nocturno', 'estilizado', 'grafico']);
   });
 
   it('cada variante tiene su propio material', () => {
@@ -239,11 +240,88 @@ describe('BALL_PRESETS', () => {
 
   it('el brillo se mantiene dentro de un rango que no queme la imagen', () => {
     for (const preset of Object.values(BALL_PRESETS)) {
-      expect(preset.sheen).toBeGreaterThan(0);
+      // La gráfica no tiene brillo especular: un reflejo concentrado es
+      // justamente lo que no se quiere, así que el piso es cero y no más.
+      expect(preset.sheen).toBeGreaterThanOrEqual(0);
       expect(preset.sheen).toBeLessThanOrEqual(1);
       expect(preset.sharpness).toBeGreaterThanOrEqual(1);
       expect(preset.rim).toBeGreaterThanOrEqual(0);
       expect(preset.rim).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('todas declaran aplanado y sombra dentro de rango', () => {
+    for (const preset of Object.values(BALL_PRESETS)) {
+      expect(preset.flat).toBeGreaterThanOrEqual(0);
+      expect(preset.flat).toBeLessThanOrEqual(1);
+      expect(preset.shadow).toBeGreaterThanOrEqual(0);
+      expect(preset.shadow).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('la variante gráfica apaga toda la maquinaria de realismo', () => {
+    const { grafico } = BALL_PRESETS;
+    // Granulado, relieve y reflejo son las tres cosas que hacen leer «cuero».
+    expect(grafico.grain).toBe(0);
+    expect(grafico.normalStrength).toBe(0);
+    expect(grafico.sheen).toBe(0);
+    expect(grafico.flat).toBe(1);
+    // Y la sombra queda apenas de apoyo, muy por debajo de la fotográfica.
+    expect(grafico.shadow).toBeLessThan(BALL_PRESETS.cuero.shadow / 2);
+  });
+
+  it('la variante gráfica usa los colores de la paleta y no un naranja de cuero', () => {
+    // Naranja `--color-orange` sobre tinta `--color-ink`: los mismos dos colores
+    // con los que está hecho el resto de la página.
+    expect(BALL_PRESETS.grafico.leather).toEqual([249, 115, 22]);
+    expect(BALL_PRESETS.grafico.seam).toEqual([7, 17, 31]);
+  });
+});
+
+describe('seamInkAt', () => {
+  it('con acabado de cuero es el mismo desvanecimiento del surco', () => {
+    const punto = sphereAt(0.12, 0.42);
+    expect(seamInkAt(punto, BALL_PRESETS.cuero)).toBeCloseTo(seamFalloffAt(punto), 10);
+  });
+
+  it('con acabado gráfico la costura tiene más cuerpo que el surco', () => {
+    /*
+     * Se mide en el borde de la costura, no en el centro: en el centro las dos
+     * valen 1 y no habría nada que comparar. Lo que cambia es cuánto tarda en
+     * apagarse, que es lo que hace que una se lea como línea y la otra como
+     * sombra.
+     */
+    const alturaSobreElEcuador = Math.sin(SEAM_WIDTH * 0.6);
+    // Bien separado de las otras tres costuras, para que la única cerca sea el
+    // ecuador y la comparación mida lo que dice medir.
+    const x = Math.cos(0.5);
+    const borde = {
+      x,
+      y: alturaSobreElEcuador,
+      z: Math.sqrt(1 - x * x - alturaSobreElEcuador * alturaSobreElEcuador),
+    };
+    expect(distanceToNearestSeam(borde)).toBeCloseTo(SEAM_WIDTH * 0.6, 6);
+    expect(seamInkAt(borde, BALL_PRESETS.grafico)).toBeGreaterThan(
+      seamInkAt(borde, BALL_PRESETS.cuero),
+    );
+  });
+
+  it('nunca se pasa de 1 ni queda por debajo de 0', () => {
+    for (const preset of Object.values(BALL_PRESETS)) {
+      for (let u = 0; u < 1; u += 0.05) {
+        for (let v = 0; v < 1; v += 0.05) {
+          const valor = seamInkAt(sphereAt(u, v), preset);
+          expect(valor).toBeGreaterThanOrEqual(0);
+          expect(valor).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+
+  it('lejos de toda costura no pinta nada, tenga el acabado que tenga', () => {
+    const lejos = sphereAt(0.0625, 0.25);
+    for (const preset of Object.values(BALL_PRESETS)) {
+      expect(seamInkAt(lejos, preset)).toBe(0);
     }
   });
 });
