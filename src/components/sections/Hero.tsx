@@ -33,11 +33,17 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
 
   // Un resorte suaviza el seguimiento del scroll para que no se sienta rígido.
   const smooth = useSpring(scrollYProgress, { stiffness: 90, damping: 24, mass: 0.4 });
-  // La pelota cruza la pantalla mientras se scrollea: baja, se corre hacia la
-  // izquierda, gira y crece, como si rodara fuera de cuadro.
-  const ballY = useTransform(smooth, [0, 1], [0, 220]);
-  const ballX = useTransform(smooth, [0, 1], [0, -160]);
-  const ballScale = useTransform(smooth, [0, 1], [1, 1.35]);
+  /*
+   * La pelota se corre apenas mientras se scrollea: baja un poco y se va para la
+   * izquierda, como si rodara fuera de cuadro.
+   *
+   * Poco, y sin agrandarse. Antes bajaba 220 px y crecía a 1,35: a media pantalla
+   * de scroll quedaba enorme, la sección la cortaba al ras por el borde de abajo
+   * y el resto se le metía atrás del nav. El recorrido corto alcanza para que el
+   * plano se despegue del texto, que es lo único que el parallax tiene que hacer.
+   */
+  const ballY = useTransform(smooth, [0, 1], [0, 90]);
+  const ballX = useTransform(smooth, [0, 1], [0, -40]);
   // El lienzo 3D lee este valor dentro de su propio bucle de render, así el
   // scroll no dispara un re-render de React por cuadro.
   const ballProgress = smooth;
@@ -127,7 +133,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
         </motion.div>
 
         <motion.div
-          style={prefersReduced ? undefined : { y: ballY, x: ballX, scale: ballScale }}
+          style={prefersReduced ? undefined : { y: ballY, x: ballX }}
           className="relative flex w-full max-w-[280px] shrink-0 items-center justify-center sm:max-w-[360px] lg:w-[440px] lg:max-w-none"
         >
           <motion.div

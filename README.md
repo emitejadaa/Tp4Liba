@@ -133,10 +133,18 @@ cambió de lugar.
   sección. No se nota en la transición; se nota al llegar abajo.
 - **Un solo idioma para «esto cambió».** La solapa que gira desde su borde de arriba está en las
   filas de la tabla, en los números del marcador y en el pase entre secciones.
-- **La pelota del encabezado es un objeto 3D real**, hecho con Three.js: se la arrastra con el dedo o
-  el mouse y sigue girando por inercia al soltarla. No imita cuero: un solo naranja, las costuras
-  dibujadas como líneas de tinta y un canto encendido, sin granulado ni relieve ni reflejo. Las tres
-  variantes fotográficas quedaron en `basketball-texture.ts` como referencia, detrás de un dial.
+- **La pelota del encabezado es geometría, dibujada con líneas.** Las cuatro costuras de una pelota
+  de ocho paneles son curvas sobre una esfera: se las calcula en 3D, se las gira y se las proyecta a
+  trazos de SVG, cuadro a cuadro (`lib/ball-wireframe.ts`). Se mece despacio y el scroll la rota un
+  poco más, dentro de un arco de cincuenta grados: pasado eso, el eje de los arcos laterales apunta a
+  la cámara, se convierten en anillos concéntricos y la pelota deja de leerse como pelota.
+
+  Antes era una esfera de Three.js con textura y matcap, y se fue por tres razones. Llegaba a
+  pantalla ya rasterizada, con el borde lavado. Crecía a 1,35 al scrollear, así que a media pantalla
+  la sección la cortaba al ras y el resto quedaba atrás del nav. Y era el único objeto fotográfico
+  de una página hecha de líneas finas. La versión vectorial se ve nítida en cualquier pantalla, pesa
+  cuatro `<path>`, y sacó `three` y `@react-three/fiber` del bundle.
+
 - **Las tarjetas se inclinan en 3D hacia el puntero**, y la luz que las cruza es una sola por sección
   en vez de una por tarjeta.
 - **Los botones se corren unos píxeles hacia el cursor**, con tope para no escaparse de abajo del

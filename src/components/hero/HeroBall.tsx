@@ -1,110 +1,219 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
-import dynamic from 'next/dynamic';
+import { useMemo, useRef } from 'react';
+import { SEAMS, ballPaths } from '@/lib/ball-wireframe';
+import { useIsomorphicLayoutEffect } from '@/hooks/useIsomorphicLayoutEffect';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import type { BallPresetId } from '@/lib/basketball-texture';
-import { asset } from '@/lib/site';
-
-/*
- * Three.js pesa bastante más que el resto de la página junta, así que no viaja
- * en la carga inicial: la pelota se pinta primero como SVG —el mismo dibujo que
- * venía del diseño— y el lienzo 3D la reemplaza cuando terminó de bajar. Así el
- * encabezado se ve completo desde el primer cuadro y no hay salto de layout,
- * porque los dos ocupan exactamente el mismo espacio.
- */
-const Basketball3D = dynamic(() => import('./Basketball3D'), { ssr: false });
 
 /**
- * Variante de material de la pelota.
+ * La pelota del encabezado: dibujada, no renderizada.
  *
- * Se construyeron tres versiones de cuero —`cuero`, `nocturno` y `estilizado`,
- * definidas en `basketball-texture.ts`— y ninguna quedó: las tres persiguen el
- * realismo, y una pelota fotográfica adentro de una página hecha de formas
- * planas y dos colores se ve pegada encima, no parte de ella.
+ * Es una esfera de verdad —las costuras se calculan en 3D y se proyectan cuadro
+ * a cuadro, en `lib/ball-wireframe.ts`— pero llega a pantalla como trazos de SVG.
+ * Eso le da tres cosas que la versión con WebGL no tenía: se ve nítida en
+ * cualquier pantalla, pesa lo que pesan cuatro `<path>`, y habla el mismo idioma
+ * que los íconos y las marcas de cancha del resto de la página en vez de ser el
+ * único objeto fotográfico de la landing.
  *
- * La que quedó es `grafico`: un solo naranja, las costuras dibujadas como líneas
- * de tinta y un canto encendido. No tiene granulado, ni relieve, ni reflejo que
- * se corra al girar. Lo único que la hace leer como un objeto y no como un
- * círculo es que gira, y que gire es justamente lo que se puede hacer con ella.
- *
- * Cambiar de variante es cambiar esta constante; el resto del componente no la
- * conoce.
+ * Se mece despacio sola y el scroll la rota un poco más. Nada más: no se la
+ * arrastra, no pica y no cambia de tamaño. Lo que hacía que molestara era
+ * justamente eso, que se agrandaba al scrollear hasta que la sección la cortaba
+ * por la mitad y se le metía abajo del nav.
  */
-const PRESET: BallPresetId = 'grafico';
 
 /**
  * Fuente del progreso de scroll. Se pasa como objeto con `get()` en vez de como
- * número para que el lienzo 3D lo lea dentro de su propio bucle: un número
- * obligaría a re-renderizar React en cada cuadro de scroll.
+ * número para que el bucle de dibujo lo lea por su cuenta: un número obligaría a
+ * re-renderizar React en cada cuadro de scroll.
  */
 export type ScrollSource = { get: () => number };
 
 /**
- * `true` si el navegador puede dibujar WebGL.
+ * Inclinación del eje, en radianes.
  *
- * El resultado se cachea: crear un contexto WebGL sólo para preguntar no es
- * gratis, y la respuesta no cambia durante la vida de la pestaña.
+ * Poca a propósito: una pelota se reconoce por la costura vertical con el ecuador
+ * cruzándola, y pasados los quince grados esa lectura se pierde y el dibujo
+ * empieza a parecer un giroscopio.
  */
-let webGLSupport: boolean | null = null;
-
-function supportsWebGL(): boolean {
-  if (webGLSupport !== null) return webGLSupport;
-  try {
-    const canvas = document.createElement('canvas');
-    webGLSupport = Boolean(canvas.getContext('webgl2') ?? canvas.getContext('webgl'));
-  } catch {
-    webGLSupport = false;
-  }
-  return webGLSupport;
-}
-
-/** Nunca cambia, así que no hace falta suscribirse a nada. */
-function subscribeToNothing() {
-  return () => {};
-}
-
-/** La pelota plana del diseño, que sirve de base y de plan B. */
-function FlatBall() {
-  return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
-      src={asset('/assets/basketball.svg')}
-      alt=""
-      width={410}
-      height={410}
-      className="h-auto w-full"
-    />
-  );
-}
+const TILT = -0.16;
 
 /**
- * Pelota del encabezado.
+ * La pelota se mece, no gira entera. Amplitud en radianes y período en segundos.
  *
- * Devuelve la versión 3D arrastrable cuando el navegador puede con ella, y la
- * ilustración plana cuando no: sin WebGL, o con `prefers-reduced-motion`, donde
- * una pelota girando sola sería justo lo que la persona pidió no ver.
+ * No es una limitación técnica sino cómo se lee una pelota de básquet. De frente
+ * se la reconoce por la costura vertical, el ecuador cruzándola y los dos arcos
+ * abrazándola por los costados. A noventa grados de giro el eje de esos arcos
+ * apunta a la cámara: los dos arcos se convierten en anillos concéntricos, la
+ * costura vertical se superpone al contorno, y lo que queda parece un
+ * giroscopio. Meciéndose dentro de los cincuenta grados nunca pasa por ahí, y
+ * además es un movimiento mucho más tranquilo para algo que vive arriba de todo
+ * en la página.
  */
-export function HeroBall({ scroll }: { scroll?: ScrollSource }) {
-  const prefersReduced = useReducedMotion();
-  // En el servidor no hay WebGL, así que el HTML sale siempre con la pelota
-  // plana y el 3D entra al hidratar: nunca hay diferencia de hidratación.
-  const canRender3D = useSyncExternalStore(subscribeToNothing, supportsWebGL, () => false);
+const SWING = 0.35;
+const SWING_SECONDS = 15;
 
-  if (prefersReduced || !canRender3D) {
-    return (
-      <div className="relative aspect-square w-full">
-        <FlatBall />
-      </div>
-    );
-  }
+/** Cuánto la hace rotar recorrer el encabezado entero, en radianes. */
+const SCROLL_SWING = 0.5;
+
+/**
+ * Puntos por costura. Con 96 la curva ya es lisa en una pelota de 440 px; subir
+ * no cambia un píxel y multiplica las cuentas por cuadro.
+ */
+const STEPS = 96;
+
+/** Debajo de este giro no se reescribe el DOM: no se vería la diferencia. */
+const MIN_STEP = 0.0015;
+
+export function HeroBall({ scroll }: { scroll?: ScrollSource }) {
+  const root = useRef<SVGSVGElement>(null);
+  const prefersReduced = useReducedMotion();
+
+  /*
+   * El primer dibujo se calcula al renderizar, no en un efecto: el HTML del
+   * servidor ya sale con la pelota entera. Sin JavaScript, o antes de que
+   * hidrate, se ve igual —quieta— en vez de aparecer un hueco.
+   */
+  const initial = useMemo(() => ballPaths(0, TILT, STEPS), []);
+
+  useIsomorphicLayoutEffect(() => {
+    const svg = root.current;
+    if (!svg || prefersReduced) return;
+
+    /*
+     * Y se vuelve a preguntar, directo al navegador. `useReducedMotion` se apoya
+     * en `useSyncExternalStore`, que durante la hidratación devuelve el snapshot
+     * del servidor —`false`, porque en el servidor no hay media queries— y recién
+     * en el render siguiente entrega el valor real. Ese render de más alcanza
+     * para que el bucle arranque y la pelota se mueva unos grados ante alguien
+     * que pidió justamente que no se moviera nada.
+     */
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const fronts = [...svg.querySelectorAll<SVGPathElement>('[data-seam="front"]')];
+    const backs = [...svg.querySelectorAll<SVGPathElement>('[data-seam="back"]')];
+
+    let frame: number | null = null;
+    let onScreen = true;
+    let start = performance.now();
+    let elapsed = 0;
+    let lastSpin = Number.NaN;
+
+    const draw = (now: number) => {
+      frame = requestAnimationFrame(draw);
+      elapsed = (now - start) / 1000;
+
+      const swing = Math.sin((elapsed / SWING_SECONDS) * Math.PI * 2) * SWING;
+      const spin = swing + (scroll?.get() ?? 0) * SCROLL_SWING;
+      if (Math.abs(spin - lastSpin) < MIN_STEP) return;
+      lastSpin = spin;
+
+      const paths = ballPaths(spin, TILT, STEPS);
+      for (let i = 0; i < paths.length; i++) {
+        fronts[i]?.setAttribute('d', paths[i]!.front);
+        backs[i]?.setAttribute('d', paths[i]!.back);
+      }
+    };
+
+    /*
+     * Fuera de pantalla o con la pestaña escondida no se dibuja. Son dos
+     * condiciones distintas: la pelota puede estar a la vista con la pestaña
+     * oculta, o la pestaña activa con la pelota ya scrolleada.
+     */
+    const sync = () => {
+      const shouldRun = onScreen && !document.hidden;
+      if (shouldRun && frame === null) {
+        // Se recalcula el origen del reloj para que no pegue un salto de giro
+        // proporcional al rato que estuvo parada.
+        start = performance.now() - elapsed * 1000;
+        frame = requestAnimationFrame(draw);
+      } else if (!shouldRun && frame !== null) {
+        cancelAnimationFrame(frame);
+        frame = null;
+      }
+    };
+
+    const observer =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver(
+            (entries) => {
+              onScreen = entries[0]?.isIntersecting ?? true;
+              sync();
+            },
+            { threshold: 0.05 },
+          );
+    observer?.observe(svg);
+    document.addEventListener('visibilitychange', sync);
+    sync();
+
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [prefersReduced, scroll]);
 
   return (
-    <div className="relative aspect-square w-full" data-testid="hero-ball-3d">
-      <Basketball3D scroll={scroll} preset={PRESET} />
-      <p className="text-dim pointer-events-none absolute inset-x-0 -bottom-1 text-center text-xs tracking-[0.12em] uppercase opacity-70">
-        Arrástrala
-      </p>
+    <div className="relative aspect-square w-full" data-testid="hero-ball">
+      <svg
+        ref={root}
+        /*
+         * El `viewBox` deja un margen respecto del radio 1 para que el trazo del
+         * contorno no quede cortado al ras por el borde del SVG.
+         */
+        viewBox="-1.06 -1.06 2.12 2.12"
+        className="text-orange size-full"
+        aria-hidden="true"
+        focusable="false"
+      >
+        {/*
+          `non-scaling-stroke` fija el grosor en píxeles de pantalla: la pelota
+          mide 280 px en un teléfono y 440 en escritorio, y con el trazo atado al
+          `viewBox` sería un dibujo fino en un lado y grueso en el otro.
+        */}
+        {/*
+          El cuerpo va relleno con el mismo tono de las tarjetas. Vacía, la
+          pelota se leía como un globo de alambre: se veían las cuatro costuras
+          enteras a la vez y, peor, se le transparentaban las marcas de cancha del
+          fondo, que la cruzaban de lado a lado.
+        */}
+        <circle
+          r="1"
+          fill="var(--color-ink-raised)"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          vectorEffect="non-scaling-stroke"
+        />
+
+        {/* El otro lado, apenas insinuado: es lo que le da volumen sin abrirla. */}
+        <g stroke="currentColor" strokeWidth="1" opacity="0.14" fill="none">
+          {SEAMS.map((_, index) => (
+            <path
+              key={`back-${index}`}
+              data-seam="back"
+              d={initial[index]?.back ?? ''}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </g>
+
+        <g
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          fill="none"
+          suppressHydrationWarning
+        >
+          {SEAMS.map((_, index) => (
+            <path
+              key={`front-${index}`}
+              data-seam="front"
+              d={initial[index]?.front ?? ''}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </g>
+      </svg>
     </div>
   );
 }

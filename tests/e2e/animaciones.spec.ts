@@ -10,9 +10,8 @@ test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 test.describe('Animaciones e interacción', () => {
   test('la pelota del encabezado se mueve al scrollear', async ({ page }) => {
     await page.goto('/');
-    // La pelota es un lienzo 3D cuando hay WebGL; medimos su contenedor, que es
-    // lo que el parallax desplaza.
-    const pelota = page.locator('#inicio [data-testid="hero-ball-3d"]');
+    // Se mide el contenedor de la pelota, que es lo que el parallax desplaza.
+    const pelota = page.locator('#inicio [data-testid="hero-ball"]');
 
     const antes = await pelota.boundingBox();
     expect(antes).not.toBeNull();
@@ -93,47 +92,70 @@ test.describe('Animaciones e interacción', () => {
   });
 });
 
-test.describe('Pelota 3D del encabezado', () => {
-  test('se puede arrastrar y queda girando por inercia', async ({ page }) => {
+test.describe('Pelota del encabezado', () => {
+  test('gira sola, sin que nadie la toque', async ({ page }) => {
     await page.goto('/');
 
-    const lienzo = page.locator('#inicio canvas');
-    await expect(lienzo).toHaveCount(1);
+    // Las costuras se recalculan cuadro a cuadro desde la geometría de la
+    // esfera, así que el trazado cambia justamente porque la pelota está girando.
+    const costura = page.locator('#inicio [data-seam="front"]').first();
+    const trazado = () => costura.getAttribute('d');
 
-    const caja = await lienzo.boundingBox();
-    expect(caja).not.toBeNull();
-    const centro = { x: caja!.x + caja!.width / 2, y: caja!.y + caja!.height / 2 };
+    const antes = await trazado();
+    expect(antes).toBeTruthy();
+    await expect.poll(trazado, { timeout: 5_000 }).not.toBe(antes);
+  });
 
+  test('es un dibujo vectorial y no un lienzo rasterizado', async ({ page }) => {
+    await page.goto('/');
+
+    // Un lienzo llega a pantalla ya rasterizado y se ve lavado en el borde; las
+    // cuatro costuras son trazos, y se ven nítidas a cualquier tamaño.
+    await expect(page.locator('#inicio canvas')).toHaveCount(0);
+    await expect(page.locator('#inicio [data-testid="hero-ball"] svg')).toHaveCount(1);
+    await expect(page.locator('#inicio [data-seam="front"]')).toHaveCount(4);
+  });
+
+  test('no se agranda al scrollear ni se sale de su sección', async ({ page }) => {
     /*
-     * No podemos leer la rotación del mesh desde afuera, así que comparamos los
-     * píxeles: si la pelota giró, la imagen del lienzo cambia. Se compara contra
-     * una captura tomada en el mismo instante del giro en reposo para no
-     * confundir el arrastre con el giro que ya venía.
+     * Es el defecto que la hizo rehacer: crecía a 1,35 y bajaba 220 px, así que
+     * a media pantalla de scroll la sección la cortaba al ras por el borde de
+     * abajo y el resto quedaba atrás del nav.
      */
-    const antes = await lienzo.screenshot();
+    await page.goto('/');
+    const pelota = page.locator('#inicio [data-testid="hero-ball"]');
+    const inicio = page.locator('#inicio');
 
-    await page.mouse.move(centro.x, centro.y);
-    await page.mouse.down();
-    for (let paso = 1; paso <= 10; paso++) {
-      await page.mouse.move(centro.x + paso * 14, centro.y + paso * 3);
-      await page.waitForTimeout(16);
-    }
-    await page.mouse.up();
-    await page.waitForTimeout(120);
+    // La pelota entra creciendo de 0,85 a 1: hay que dejarla llegar antes de
+    // tomarle la medida, o lo que se compara es contra un cuadro de la entrada.
+    await page.waitForTimeout(1_200);
+    const anchoInicial = (await pelota.boundingBox())!.width;
 
-    const despues = await lienzo.screenshot();
-    expect(Buffer.compare(antes, despues)).not.toBe(0);
+    await page.evaluate(() => window.scrollTo({ top: 420, behavior: 'instant' }));
+    await page.waitForTimeout(900);
+
+    const caja = (await pelota.boundingBox())!;
+    const seccion = (await inicio.boundingBox())!;
+
+    expect(caja.width).toBeCloseTo(anchoInicial, 0);
+    expect(caja.y + caja.height).toBeLessThanOrEqual(seccion.y + seccion.height + 1);
   });
 });
 
 test.describe('Pelota del encabezado con movimiento reducido', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
-  test('cae a la ilustración plana en vez de montar el lienzo 3D', async ({ page }) => {
+  test('se dibuja igual, pero se queda quieta', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.locator('#inicio canvas')).toHaveCount(0);
-    await expect(page.locator('#inicio img[src*="basketball"]')).toHaveCount(1);
+    // No es que desaparezca: el mismo dibujo, sin bucle de animación detrás.
+    const costura = page.locator('#inicio [data-seam="front"]').first();
+    await expect(page.locator('#inicio [data-seam="front"]')).toHaveCount(4);
+
+    const antes = await costura.getAttribute('d');
+    expect(antes).toBeTruthy();
+    await page.waitForTimeout(900);
+    expect(await costura.getAttribute('d')).toBe(antes);
   });
 });
 
@@ -346,17 +368,5 @@ test.describe('Pase entre secciones', () => {
     await expect(page.locator('#tabla')).toBeInViewport();
 
     await contexto.close();
-  });
-});
-
-test.describe('Pelota del encabezado', () => {
-  test('usa el acabado gráfico y no uno de cuero', async ({ page }) => {
-    await page.goto('/');
-    // La variante decide el material entero: sin granulado, sin relieve y sin
-    // reflejo. Es lo que la mantiene en línea con el resto de la página.
-    await expect(page.locator('#inicio [data-ball-preset]')).toHaveAttribute(
-      'data-ball-preset',
-      'grafico',
-    );
   });
 });
