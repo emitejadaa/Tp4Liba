@@ -31,6 +31,10 @@ function PointsCell({ value, active }: { value: number; active: boolean }) {
  * reacomodan con una animación de layout para que se vea cuál se movió a dónde
  * en vez de que la tabla cambie de golpe.
  *
+ * Entra con un barrido de abajo hacia arriba en vez de con un desvanecido: un
+ * barrido se lee como que la tabla se termina de armar, y una opacidad, como que
+ * la tabla aparece. Lo maneja `.wipe-up`, que lee el avance de la sección.
+ *
  * En teléfonos la tabla se aprieta en vez de desbordar: el ancho mínimo baja a
  * 320 px y los números pierden relleno. Con el ancho de escritorio, un teléfono
  * mostraba el puesto y el nombre del equipo y ni uno solo de los números, que
@@ -62,7 +66,7 @@ export function Standings() {
       */}
       <div
         ref={ref}
-        className="border-line-card bg-ink-raised relative overflow-x-auto rounded-xl border"
+        className="wipe-up border-line-card bg-ink-raised relative overflow-x-auto rounded-xl border"
       >
         <table className="w-full min-w-[320px] border-collapse sm:min-w-[560px]">
           <caption className="sr-only">

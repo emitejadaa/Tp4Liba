@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { BallFlight } from '@/components/hero/BallFlight';
 import { Footer } from '@/components/layout/Footer';
 import { SiteNav } from '@/components/layout/SiteNav';
 import { ContactCta } from '@/components/sections/ContactCta';
@@ -64,14 +63,6 @@ export default function Home() {
         <ContactCta />
       </main>
       <Footer />
-
-      {/*
-        La pelota que cruza la página va después del contenido a propósito: las
-        secciones de sponsors y cancha tienen fondo propio y opaco, y por detrás
-        la pelota se apagaría justo en el medio del recorrido. Por delante y
-        translúcida, el hilo no se corta nunca.
-      */}
-      <BallFlight />
 
       {/* Sin haber abierto nunca el diálogo no hace falta ni pedir su código. */}
       {modal.seq > 0 ? (

@@ -7,7 +7,11 @@ import { SCHEDULE } from '@/data/schedule';
 describe('Schedule', () => {
   it('muestra los cuatro cruces de la fecha', () => {
     render(<Schedule />);
-    expect(screen.getAllByRole('listitem')).toHaveLength(SCHEDULE.matches.length);
+    // El riel abre con el título y cierra con la nota de cierre, así que los
+    // `<li>` no son los cruces: se cuentan por su botón, que sí es de cada uno.
+    expect(screen.getAllByRole('button', { name: /Ver boxscore/ })).toHaveLength(
+      SCHEDULE.matches.length,
+    );
 
     for (const match of SCHEDULE.matches) {
       expect(screen.getByText(match.home)).toBeInTheDocument();

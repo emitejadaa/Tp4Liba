@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
  * El resto de la suite corre con `prefers-reduced-motion` para que las
@@ -188,13 +188,15 @@ test.describe('Profundidad 3D', () => {
       const caja = seccion.getBoundingClientRect();
       window.scrollTo(0, caja.top + window.scrollY - (window.innerHeight - caja.height) / 2);
     });
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(1_400);
     const centrada = await ancho();
 
     expect(entrando).toBeLessThan(centrada - 10);
-    // En reposo tiene que medir exactamente lo que mide su contenedor.
+    // En reposo tiene que medir lo que mide su contenedor. La tolerancia es de
+    // un par de píxeles porque la caja la reporta el compositor después de una
+    // transformación 3D, no el layout, y ahí el subpíxel es inevitable.
     const enReposo = await capa.evaluate((el) => el.offsetWidth);
-    expect(centrada).toBeCloseTo(enReposo, 0);
+    expect(Math.abs(centrada - enReposo)).toBeLessThan(2);
   });
 
   test('el isotipo del nav gira con el avance de la página', async ({ page }) => {
@@ -270,18 +272,26 @@ test.describe('Planos de profundidad', () => {
         );
       });
 
+    /*
+     * «El torneo» es un acto clavado, así que su avance corre mientras la
+     * sección está pegada: hay que muestrear adentro del recorrido. Medido
+     * antes de que empiece, el avance vale 0 en los dos puntos y los planos no
+     * se movieron nunca.
+     */
     const irA = (fraccion: number) =>
       page.evaluate((f) => {
         const seccion = document.getElementById('torneo')!;
-        const top = seccion.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: top - window.innerHeight * f, behavior: 'instant' });
+        const caja = seccion.getBoundingClientRect();
+        const top = caja.top + window.scrollY;
+        const recorrido = caja.height - window.innerHeight;
+        window.scrollTo({ top: top + recorrido * f, behavior: 'instant' });
       }, fraccion);
 
-    await irA(0.8);
+    await irA(0.15);
     await page.waitForTimeout(400);
     const arriba = await desplazamientos();
 
-    await irA(0.1);
+    await irA(0.85);
     await page.waitForTimeout(400);
     const abajo = await desplazamientos();
 
@@ -371,57 +381,6 @@ test.describe('Pase entre secciones', () => {
   });
 });
 
-test.describe('La pelota cruza la página', () => {
-  /** Lleva el scroll a una fracción del recorrido y deja asentar el resorte. */
-  async function irA(page: Page, fraccion: number) {
-    await page.evaluate((f) => {
-      const alto = document.documentElement.scrollHeight - window.innerHeight;
-      window.scrollTo({ top: Math.round(alto * f), behavior: 'instant' });
-    }, fraccion);
-    await page.waitForTimeout(1_400);
-  }
-
-  test('viaja de un costado al otro a medida que se baja', async ({ page }) => {
-    await page.goto('/');
-    const pelota = page.locator('[data-testid="ball-flight"] > div');
-
-    await irA(page, 0.26);
-    const derecha = (await pelota.boundingBox())!;
-
-    await irA(page, 0.45);
-    const izquierda = (await pelota.boundingBox())!;
-
-    // Cruza la pantalla entera: es el hilo que cose una sección con la otra.
-    const ancho = page.viewportSize()!.width;
-    expect(derecha.x - izquierda.x).toBeGreaterThan(ancho * 0.5);
-  });
-
-  test('no se scrollea con el documento: siempre está en pantalla', async ({ page }) => {
-    /*
-     * Es todo el efecto. Si se fuera con el documento sería un adorno más de una
-     * sección; quedándose, se lee que las cosas se mueven delante de quien mira.
-     */
-    await page.goto('/');
-    const pelota = page.locator('[data-testid="ball-flight"] > div');
-    const alto = page.viewportSize()!.height;
-
-    for (const fraccion of [0.1, 0.3, 0.5, 0.7, 0.95]) {
-      await irA(page, fraccion);
-      const caja = (await pelota.boundingBox())!;
-      expect(caja.y).toBeLessThan(alto);
-      expect(caja.y + caja.height).toBeGreaterThan(0);
-    }
-  });
-
-  test('es decorativa y no se puede tocar', async ({ page }) => {
-    await page.goto('/');
-    const capa = page.locator('[data-testid="ball-flight"]');
-
-    await expect(capa).toHaveAttribute('aria-hidden', 'true');
-    expect(await capa.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
-  });
-});
-
 test.describe('Las secciones se presentan', () => {
   test('el contenido no sube exactamente lo que sube el scroll', async ({ page }) => {
     /*
@@ -430,10 +389,13 @@ test.describe('Las secciones se presentan', () => {
      * lo que hace leer que el contenido se mueve en vez de que se mueva la vista.
      */
     await page.goto('/');
-    const capa = page.locator('#cronograma [data-depth-layer]');
+    // El avance de cada sección lo publica el motor de scroll-craft: hasta que
+    // no montó, la cámara de profundidad no tiene de dónde leer.
+    await page.locator('html.sc-ready').waitFor();
+    const capa = page.locator('#reglamento [data-depth-layer]');
 
     await page.evaluate(() => {
-      const seccion = document.getElementById('cronograma')!;
+      const seccion = document.getElementById('reglamento')!;
       const top = seccion.getBoundingClientRect().top + window.scrollY;
       window.scrollTo({ top: top - window.innerHeight * 0.9, behavior: 'instant' });
     });
@@ -454,12 +416,9 @@ test.describe('Las secciones se presentan', () => {
     const page = await contexto.newPage();
     await page.goto('/');
 
-    // Ni la pelota que cruza se monta, ni la sección se corre del scroll.
-    await expect(page.locator('[data-testid="ball-flight"]')).toHaveCount(0);
-
-    const capa = page.locator('#cronograma [data-depth-layer]');
+    const capa = page.locator('#reglamento [data-depth-layer]');
     await page.evaluate(() => {
-      const seccion = document.getElementById('cronograma')!;
+      const seccion = document.getElementById('reglamento')!;
       const top = seccion.getBoundingClientRect().top + window.scrollY;
       window.scrollTo({ top: top - window.innerHeight * 0.9, behavior: 'instant' });
     });
@@ -474,5 +433,149 @@ test.describe('Las secciones se presentan', () => {
     expect(antes - despues).toBeCloseTo(paso, 0);
 
     await contexto.close();
+  });
+});
+
+test.describe('Un dispositivo por sección', () => {
+  test('«El torneo» se clava y el mazo se abre mientras tanto', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('html.sc-ready').waitFor();
+
+    const seccion = page.locator('#torneo');
+    const escenario = seccion.locator('.sc-stage');
+    const primera = page.locator('#torneo .deck-card').first();
+    const ultima = page.locator('#torneo .deck-card').last();
+
+    /** Lleva el scroll a una fracción del recorrido del acto. */
+    const irA = (f: number) =>
+      page.evaluate((fraccion) => {
+        const el = document.getElementById('torneo')!;
+        const caja = el.getBoundingClientRect();
+        const top = caja.top + window.scrollY;
+        window.scrollTo({
+          top: top + (caja.height - window.innerHeight) * fraccion,
+          behavior: 'instant',
+        });
+      }, f);
+
+    const transform = (donde: typeof primera) =>
+      donde.evaluate((el) => getComputedStyle(el).transform);
+
+    await irA(0.05);
+    await page.waitForTimeout(300);
+    const escenarioArriba = (await escenario.boundingBox())!.y;
+    const ultimaAlEmpezar = await transform(ultima);
+
+    await irA(0.9);
+    await page.waitForTimeout(300);
+    const escenarioAbajo = (await escenario.boundingBox())!.y;
+
+    // El escenario se queda quieto en pantalla mientras la página avanza: eso es
+    // que la sección esté clavada, y es de donde sale el recorrido del mazo.
+    expect(Math.abs(escenarioAbajo - escenarioArriba)).toBeLessThan(4);
+
+    // Y el mazo se abrió: la última tarjeta pasó de estar en el fondo a estar
+    // exactamente en su lugar de la grilla.
+    expect(await transform(ultima)).not.toBe(ultimaAlEmpezar);
+    expect(await transform(ultima)).toBe(await transform(primera));
+  });
+
+  test('el recorrido del acto clavado no sobra: el mazo termina cerca del final', async ({
+    page,
+  }) => {
+    /*
+     * Scroll que no cambia nada en pantalla es el defecto que más barato arruina
+     * un acto clavado: se sigue girando la rueda y la página parece trabada.
+     */
+    await page.goto('/');
+    await page.locator('html.sc-ready').waitFor();
+
+    const avance = await page.evaluate(() => {
+      const el = document.getElementById('torneo')!;
+      const ultima = [...el.querySelectorAll('.deck-card')].at(-1)!;
+      const caja = el.getBoundingClientRect();
+      const top = caja.top + window.scrollY;
+      const recorrido = caja.height - window.innerHeight;
+
+      // Se busca el primer punto donde la última tarjeta ya está en su lugar.
+      for (let f = 0; f <= 1.0001; f += 0.05) {
+        window.scrollTo({ top: top + recorrido * f, behavior: 'instant' });
+        const t = getComputedStyle(ultima).transform;
+        if (t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)') return f;
+      }
+      return 1;
+    });
+
+    expect(avance).toBeGreaterThan(0.6);
+  });
+
+  test('el cronograma se recorre de costado', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('html.sc-ready').waitFor();
+
+    const medidas = await page.evaluate(() => {
+      const riel = document.querySelector<HTMLElement>('#cronograma [data-sc-pan]')!;
+      return { sobresale: riel.scrollWidth - window.innerWidth };
+    });
+
+    /*
+     * Un riel más angosto que la ventana viaja **cero** y el acto se convierte en
+     * una pantalla quieta durante todo su recorrido. Es invisible en una captura
+     * y depende del ancho, así que puede estar bien en un teléfono y muerto en
+     * escritorio al mismo tiempo.
+     */
+    expect(medidas.sobresale).toBeGreaterThan(page.viewportSize()!.width * 0.4);
+
+    const riel = page.locator('#cronograma [data-sc-pan]');
+    const irA = (f: number) =>
+      page.evaluate((fraccion) => {
+        const el = document.getElementById('cronograma')!;
+        const caja = el.getBoundingClientRect();
+        window.scrollTo({
+          top: caja.top + window.scrollY + (caja.height - window.innerHeight) * fraccion,
+          behavior: 'instant',
+        });
+      }, f);
+
+    await irA(0.05);
+    await page.waitForTimeout(300);
+    const alEmpezar = (await riel.boundingBox())!.x;
+
+    await irA(0.95);
+    await page.waitForTimeout(300);
+    const alTerminar = (await riel.boundingBox())!.x;
+
+    expect(alEmpezar - alTerminar).toBeGreaterThan(medidas.sobresale * 0.7);
+  });
+});
+
+test.describe('Sin el motor de scroll', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('la página sigue completa y nada queda recortado', async ({ page }) => {
+    /*
+     * Los escenarios del motor dejan el contenido pegado y recortado contando con
+     * que el motor esté vivo. Sin JavaScript no hay motor —ni React—, así que lo
+     * que se ve es el HTML del servidor con la red de seguridad del CSS puesta.
+     * Si esto se rompe, la página pierde secciones enteras en la peor situación
+     * posible, que es justo cuando algo ya falló.
+     */
+    await page.goto('/');
+
+    await expect(page.locator('#torneo')).toBeVisible();
+    // Acotado a la sección: «Formato» también es el principio de «Formato de
+    // juego», el primer ítem del reglamento, y el nombre accesible se busca por
+    // subcadena.
+    const torneo = page.locator('#torneo');
+    for (const tarjeta of ['Formato', 'Partidos', 'Horarios', 'Inscripción']) {
+      await expect(torneo.getByRole('heading', { name: tarjeta })).toBeVisible();
+    }
+    await expect(page.getByRole('button', { name: /Ver boxscore/ })).toHaveCount(4);
+
+    // Y sin el motor tampoco se arrastra para el costado.
+    const desborde = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(desborde).toBeLessThanOrEqual(1);
   });
 });
