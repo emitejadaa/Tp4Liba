@@ -57,11 +57,26 @@ describe('HeroBall', () => {
     // El trazo tiene ancho: cerca de la silueta, la mitad cae fuera del disco y
     // se ven pestañas de tinta asomando por el borde.
     const { container } = render(<HeroBall />);
-    expect(container.querySelector('clipPath')).toBeInTheDocument();
-    expect(container.querySelector('[data-seam]')?.closest('g')).toHaveAttribute(
-      'clip-path',
-      'url(#liba-ball-clip)',
+    const recorte = container.querySelector('clipPath');
+    const costuras = container.querySelector('[data-seam]')?.closest('g');
+
+    expect(recorte).toBeInTheDocument();
+    expect(costuras).toHaveAttribute('clip-path', `url(#${recorte!.id})`);
+  });
+
+  it('cada pelota recorta con su propio id', () => {
+    // Hay dos pelotas en la página —la del encabezado y la que la cruza—, y con
+    // un id fijo la segunda apuntaría al recorte de la primera.
+    const { container } = render(
+      <>
+        <HeroBall />
+        <HeroBall />
+      </>,
     );
+    const ids = [...container.querySelectorAll('clipPath')].map((recorte) => recorte.id);
+
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
   });
 
   it('no monta un lienzo: la pelota es vectorial', () => {

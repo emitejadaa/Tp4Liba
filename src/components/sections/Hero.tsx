@@ -44,6 +44,12 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
    */
   const ballY = useTransform(smooth, [0, 1], [0, 90]);
   const ballX = useTransform(smooth, [0, 1], [0, -40]);
+  /*
+   * Y se apaga al irse. La que sigue bajando es la de `BallFlight`, que cruza la
+   * página entera; esta se desvanece mientras aquella aparece, más o menos donde
+   * ésta estaba, para que se lean como una sola pelota que se fue rodando.
+   */
+  const ballFade = useTransform(smooth, [0.3, 0.85], [1, 0]);
   // El lienzo 3D lee este valor dentro de su propio bucle de render, así el
   // scroll no dispara un re-render de React por cuadro.
   const ballProgress = smooth;
@@ -133,7 +139,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
         </motion.div>
 
         <motion.div
-          style={prefersReduced ? undefined : { y: ballY, x: ballX }}
+          style={prefersReduced ? undefined : { y: ballY, x: ballX, opacity: ballFade }}
           className="relative flex w-full max-w-[280px] shrink-0 items-center justify-center sm:max-w-[340px] lg:w-[380px] lg:max-w-none"
         >
           <motion.div

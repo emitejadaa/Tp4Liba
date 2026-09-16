@@ -47,6 +47,15 @@ export const SEAMS: readonly Seam[] = [
 export type Vec3 = { x: number; y: number; z: number };
 
 /**
+ * Inclinación del eje, en radianes, con la que se dibuja la pelota.
+ *
+ * Poca a propósito: una pelota se reconoce por la costura vertical con el ecuador
+ * cruzándola, y pasados los quince grados esa lectura se pierde y el dibujo
+ * empieza a parecer un giroscopio.
+ */
+export const DEFAULT_TILT = -0.16;
+
+/**
  * Terna ortonormal de un eje: el eje y dos direcciones perpendiculares.
  *
  * Con ella, cualquier círculo alrededor del eje es una vuelta de seno y coseno

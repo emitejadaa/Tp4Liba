@@ -68,7 +68,8 @@ título y la acción principal entren enteros en la primera pantalla.
 
 `animaciones.spec.ts` verifica lo que sólo existe con movimiento: el parallax del encabezado, la
 profundidad de las secciones, los planos del fondo viajando a distinta velocidad, el tinte del fondo
-a lo largo del recorrido y la solapa que tapa el salto entre secciones.
+a lo largo del recorrido, la solapa que tapa el salto entre secciones, la pelota cruzando la pantalla
+sin irse nunca con el documento, y que el contenido no suba exactamente lo que sube el scroll.
 
 ```bash
 npm test        # unitarios
@@ -123,6 +124,25 @@ rápido que con un scroll suave y, a diferencia de un borrón de media página, 
 cambió de lugar.
 
 ### Lo que se ve
+
+- **La página se recorre como una presentación, no como un documento.** Es una sola idea: romper el
+  1:1 con el scroll. Si todo se desplaza exactamente lo que se movió la rueda, lo que se lee es que
+  la vista baja por encima de cosas quietas; si el contenido se mueve **distinto** que la página, lo
+  que se lee es que las cosas se están moviendo delante de quien mira. Cada sección se queda atrás
+  del scroll al entrar y se adelanta al salir —treinta y cuatro píxeles, `slideAt` en `lib/depth.ts`—
+  mientras llega desde el fondo y se endereza.
+
+- **Y hay una pelota que cruza la pantalla de punta a punta de la página.** Sale del encabezado, baja
+  pegada a un costado, cruza por abajo, sube por el otro y cruza por arriba, hasta quedar abajo de
+  todo al final (`lib/ball-flight.ts`). Va fija respecto de la pantalla, no del documento: es el hilo
+  que cose una sección con la siguiente, y en cualquier punto del scroll hay un objeto que se acuerda
+  de dónde venía.
+
+  Los cruces de lado a lado pasan por arriba o por abajo y nunca a media altura, porque el medio de
+  la pantalla es donde está el texto. Y va dibujada como un fantasma —el cuerpo casi transparente,
+  todo el dibujo en naranja— porque pasa **por encima** del contenido: dos secciones tienen fondo
+  propio y opaco, y por detrás la pelota se apagaría justo en la mitad del recorrido. Llena le lavaba
+  el texto por abajo; vaciada, lo que cruza son cuatro líneas finas.
 
 - **Profundidad en todo el recorrido.** Cada sección llega desde el fondo, se planta de frente
   mientras se la lee y se va al fondo al salir, con una meseta en el medio para que leer no sea leer

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
  * El resto de la suite corre con `prefers-reduced-motion` para que las
@@ -366,6 +366,112 @@ test.describe('Pase entre secciones', () => {
       .getByRole('link', { name: 'Tabla' })
       .click();
     await expect(page.locator('#tabla')).toBeInViewport();
+
+    await contexto.close();
+  });
+});
+
+test.describe('La pelota cruza la página', () => {
+  /** Lleva el scroll a una fracción del recorrido y deja asentar el resorte. */
+  async function irA(page: Page, fraccion: number) {
+    await page.evaluate((f) => {
+      const alto = document.documentElement.scrollHeight - window.innerHeight;
+      window.scrollTo({ top: Math.round(alto * f), behavior: 'instant' });
+    }, fraccion);
+    await page.waitForTimeout(1_400);
+  }
+
+  test('viaja de un costado al otro a medida que se baja', async ({ page }) => {
+    await page.goto('/');
+    const pelota = page.locator('[data-testid="ball-flight"] > div');
+
+    await irA(page, 0.26);
+    const derecha = (await pelota.boundingBox())!;
+
+    await irA(page, 0.45);
+    const izquierda = (await pelota.boundingBox())!;
+
+    // Cruza la pantalla entera: es el hilo que cose una sección con la otra.
+    const ancho = page.viewportSize()!.width;
+    expect(derecha.x - izquierda.x).toBeGreaterThan(ancho * 0.5);
+  });
+
+  test('no se scrollea con el documento: siempre está en pantalla', async ({ page }) => {
+    /*
+     * Es todo el efecto. Si se fuera con el documento sería un adorno más de una
+     * sección; quedándose, se lee que las cosas se mueven delante de quien mira.
+     */
+    await page.goto('/');
+    const pelota = page.locator('[data-testid="ball-flight"] > div');
+    const alto = page.viewportSize()!.height;
+
+    for (const fraccion of [0.1, 0.3, 0.5, 0.7, 0.95]) {
+      await irA(page, fraccion);
+      const caja = (await pelota.boundingBox())!;
+      expect(caja.y).toBeLessThan(alto);
+      expect(caja.y + caja.height).toBeGreaterThan(0);
+    }
+  });
+
+  test('es decorativa y no se puede tocar', async ({ page }) => {
+    await page.goto('/');
+    const capa = page.locator('[data-testid="ball-flight"]');
+
+    await expect(capa).toHaveAttribute('aria-hidden', 'true');
+    expect(await capa.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
+  });
+});
+
+test.describe('Las secciones se presentan', () => {
+  test('el contenido no sube exactamente lo que sube el scroll', async ({ page }) => {
+    /*
+     * Un documento plano es justo eso: todo se desplaza 1:1 con la rueda. Acá la
+     * sección se queda atrás al entrar y se adelanta al salir, y ese desfasaje es
+     * lo que hace leer que el contenido se mueve en vez de que se mueva la vista.
+     */
+    await page.goto('/');
+    const capa = page.locator('#cronograma [data-depth-layer]');
+
+    await page.evaluate(() => {
+      const seccion = document.getElementById('cronograma')!;
+      const top = seccion.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: top - window.innerHeight * 0.9, behavior: 'instant' });
+    });
+    await page.waitForTimeout(1_200);
+    const antes = (await capa.boundingBox())!.y;
+
+    const paso = 260;
+    await page.evaluate((px) => window.scrollBy({ top: px, behavior: 'instant' }), paso);
+    await page.waitForTimeout(1_200);
+    const despues = (await capa.boundingBox())!.y;
+
+    const recorrido = antes - despues;
+    expect(Math.abs(recorrido - paso)).toBeGreaterThan(12);
+  });
+
+  test('con movimiento reducido no se mueve nada de eso', async ({ browser }) => {
+    const contexto = await browser.newContext({ reducedMotion: 'reduce' });
+    const page = await contexto.newPage();
+    await page.goto('/');
+
+    // Ni la pelota que cruza se monta, ni la sección se corre del scroll.
+    await expect(page.locator('[data-testid="ball-flight"]')).toHaveCount(0);
+
+    const capa = page.locator('#cronograma [data-depth-layer]');
+    await page.evaluate(() => {
+      const seccion = document.getElementById('cronograma')!;
+      const top = seccion.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: top - window.innerHeight * 0.9, behavior: 'instant' });
+    });
+    await page.waitForTimeout(400);
+    const antes = (await capa.boundingBox())!.y;
+
+    const paso = 260;
+    await page.evaluate((px) => window.scrollBy({ top: px, behavior: 'instant' }), paso);
+    await page.waitForTimeout(400);
+    const despues = (await capa.boundingBox())!.y;
+
+    expect(antes - despues).toBeCloseTo(paso, 0);
 
     await contexto.close();
   });

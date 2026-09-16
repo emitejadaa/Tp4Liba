@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DEPTH, PLATEAU, pushAt, tiltAt, travelAt } from './depth';
+import { DEFAULT_DEPTH, PLATEAU, pushAt, slideAt, tiltAt, travelAt } from './depth';
 
 describe('travelAt', () => {
   it('vale 0 en todo el centro del recorrido', () => {
@@ -101,5 +101,43 @@ describe('pushAt', () => {
     // Una profundidad grande da sensación de túnel y marea; esto es un acento.
     expect(DEFAULT_DEPTH.rotate).toBeLessThanOrEqual(8);
     expect(DEFAULT_DEPTH.depth).toBeLessThanOrEqual(200);
+  });
+});
+
+describe('slideAt', () => {
+  it('no se corre nada en el centro', () => {
+    // Se lee quieta: el contramovimiento es para entrar y salir, no para leer.
+    expect(slideAt(0.5)).toBeCloseTo(0, 10);
+  });
+
+  it('se queda atrás al entrar y se adelanta al salir', () => {
+    /*
+     * Entrando por abajo aparece más abajo de donde le tocaría, como si le
+     * costara arrancar; saliendo por arriba se va antes. Es lo único que rompe
+     * el 1:1 con el scroll, y ese 1:1 es lo que hace sentir un documento plano.
+     */
+    expect(slideAt(0)).toBeGreaterThan(0);
+    expect(slideAt(1)).toBeLessThan(0);
+  });
+
+  it('no se pasa de lo pedido', () => {
+    for (let p = -0.5; p <= 1.5; p += 0.02) {
+      expect(Math.abs(slideAt(p, 40))).toBeLessThanOrEqual(40 + 1e-9);
+    }
+  });
+
+  it('es lineal: el desfasaje se nota durante todo el recorrido', () => {
+    // Al cuadrado como la profundidad, el contenido entraría clavado al scroll y
+    // se despegaría recién sobre el final, que es cuando ya no se lo mira.
+    const bordeMeseta = (1 - PLATEAU) / 2;
+    const aMitad = bordeMeseta / 2;
+
+    expect(slideAt(aMitad, 100)).toBeCloseTo(50, 6);
+  });
+
+  it('el contramovimiento es de acento, no de mareo', () => {
+    // Cuarenta píxeles se sienten; cien se leen como que la página patina.
+    expect(DEFAULT_DEPTH.slide).toBeLessThanOrEqual(48);
+    expect(DEFAULT_DEPTH.slide).toBeGreaterThan(0);
   });
 });

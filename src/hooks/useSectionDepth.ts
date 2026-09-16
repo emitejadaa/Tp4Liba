@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react';
 import { useScroll, useSpring, useTransform } from 'motion/react';
-import { DEFAULT_DEPTH, pushAt, tiltAt } from '@/lib/depth';
+import { DEFAULT_DEPTH, pushAt, slideAt, tiltAt } from '@/lib/depth';
 import { useReducedMotion } from './useReducedMotion';
 
 /**
@@ -21,7 +21,12 @@ import { useReducedMotion } from './useReducedMotion';
  */
 export function useSectionDepth(
   target: RefObject<HTMLElement | null>,
-  { rotate = DEFAULT_DEPTH.rotate, depth = DEFAULT_DEPTH.depth, perspective = 1400 } = {},
+  {
+    rotate = DEFAULT_DEPTH.rotate,
+    depth = DEFAULT_DEPTH.depth,
+    slide = DEFAULT_DEPTH.slide,
+    perspective = 1400,
+  } = {},
 ) {
   const prefersReduced = useReducedMotion();
 
@@ -36,9 +41,10 @@ export function useSectionDepth(
 
   const rotateX = useTransform(smooth, (value) => tiltAt(value, rotate));
   const z = useTransform(smooth, (value) => pushAt(value, depth));
+  const y = useTransform(smooth, (value) => slideAt(value, slide));
 
   return {
     enabled: !prefersReduced,
-    style: prefersReduced ? undefined : { transformPerspective: perspective, rotateX, z },
+    style: prefersReduced ? undefined : { transformPerspective: perspective, rotateX, z, y },
   } as const;
 }
