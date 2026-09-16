@@ -17,7 +17,10 @@ import { useSeamLoop } from '@/hooks/useSeamLoop';
  * radio en un ciclo de seis segundos que no coincide con el del giro, para que
  * nunca se repita el mismo cuadro. Una sola cosa pasa rápido: la entrada, que
  * dura un segundo y no vuelve a pasar.
-
+ *
+ * No se va del encabezado: cuando la sección sale de pantalla, la pelota sale
+ * con ella. Cruzando la página se convertía en un objeto suelto que compite con
+ * lo que se está leyendo.
  */
 
 /** Fuente del progreso de scroll, leída dentro del bucle y no por React. */

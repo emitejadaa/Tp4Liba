@@ -100,20 +100,17 @@ Son tres librerías y cada una hace lo que hace bien. La curva de todas sale del
   arma palabra por palabra, las líneas de cancha que se dibujan como con tiza, la solapa de las
   transiciones y los números del marcador que se dan vuelta al cambiar.
 - **El motor de scroll-craft** maneja los dispositivos de scroll declarativos. Se marca el HTML con
-  atributos `data-sc-*` y el motor los mueve desde un único bucle, sin pasar por React: la sección
-  que se clava (`data-sc-act="pin"`), el riel lateral (`data-sc-act="pan"`), los planos de
-  profundidad del fondo (`data-sc-parallax`), el tono del fondo de la página que viaja de sección en
-  sección (`data-sc-drift`) y la luz que sigue al puntero (`data-sc-spotlight`).
+  atributos `data-sc-*` y el motor los mueve desde un único bucle, sin pasar por React: los planos
+  de profundidad del fondo (`data-sc-parallax`), el tono del fondo de la página que viaja de sección
+  en sección (`data-sc-drift`) y la luz que sigue al puntero (`data-sc-spotlight`). Además publica en
+  cada sección su propio avance como la variable CSS `--sc-p`, y de ahí sale, con una sola regla de
+  CSS y cero JavaScript, la inclinación de todas las placas del fondo.
 
-  Sobre todo, publica en cada sección su propio avance como la variable CSS `--sc-p`. De ahí salen,
-  con reglas de CSS y cero JavaScript por cuadro, la inclinación de las placas del fondo, el mazo de
-  tarjetas que se abre, el barrido de la tabla y el asentado escalonado del riel.
-
-  **Nada de lo que se lee depende de que el motor esté vivo.** Sus escenarios dejan el contenido
-  pegado y recortado contando con él, así que `globals.css` los desarma mientras el `<html>` no tenga
-  la marca `.sc-ready`, y todos los efectos leen `--sc-p` con un valor por defecto que los deja en su
-  estado final. Sin motor no falta nada: sólo no se mueve. Por lo mismo, ningún efecto usa
-  `data-sc-cue` para mostrar contenido.
+  Se usan los dispositivos que **acompañan** el scroll y no los que se lo apropian. Se probaron los
+  de escenario —clavar una sección y hacer avanzar su contenido adentro, mover el cronograma de
+  costado— y se sacaron: secuestran la rueda, y con la rueda secuestrada el scroll se siente trabado
+  en vez de fluido, por más que lo que pase adentro esté bien hecho. La profundidad tiene que ser
+  algo que se atraviesa, no una puerta donde hay que esperar.
 
 El motor está copiado tal cual en `src/vendor/scrollcraft/`, que explica en su README por qué no se
 lo edita y cómo se lo tematiza con los tokens del diseño.
@@ -140,25 +137,6 @@ cambió de lugar.
   que se lee es que las cosas se están moviendo delante de quien mira. Cada sección se queda atrás
   del scroll al entrar y se adelanta al salir —treinta y cuatro píxeles, `slideAt` en `lib/depth.ts`—
   mientras llega desde el fondo y se endereza.
-
-- **Un dispositivo de scroll distinto por sección.** Es la regla del propio motor: cuatro familias
-  de dispositivo como mínimo y nunca la misma dos veces seguidas. Cinco secciones que se comportan
-  igual son una sección mostrada cinco veces.
-
-  - **«El torneo» se clava.** La sección se queda quieta en pantalla durante dos pantallas de scroll
-    y lo que avanza adentro es el mazo: las cuatro tarjetas arrancan apiladas en profundidad, giradas
-    hacia afuera, y se acomodan en su grilla de a una. La última termina en el 85% del recorrido y no
-    antes: lo que sobra después sería scroll que no cambia nada en pantalla.
-  - **La tabla entra con un barrido.** Un `clip-path` que la descubre de abajo hacia arriba. Un
-    barrido se lee como que algo se termina de armar; una opacidad, como que algo aparece.
-  - **El cronograma es un riel lateral.** El scroll vertical lo mueve de costado. Una fecha es un
-    recorrido —cuatro cruces y un cierre—, y el movimiento lateral se lee como recorrido donde el
-    vertical se lee como argumento. En la tabla de posiciones sería un error, porque el primero de un
-    riel no se lee como el más importante. El título abre el riel y el cierre lo termina: los dos
-    ganan algo con estar adentro y de paso aportan el ancho que el recorrido necesita.
-
-  Toda la cuenta de los tres vive en CSS, leyendo el avance que el motor publica en cada `<section>`.
-  Son cuatro tarjetas moviéndose en 3D sin una línea de JavaScript por cuadro.
 
 - **Profundidad en todo el recorrido.** Cada sección llega desde el fondo, se planta de frente
   mientras se la lee y se va al fondo al salir, con una meseta en el medio para que leer no sea leer

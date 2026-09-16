@@ -272,26 +272,18 @@ test.describe('Planos de profundidad', () => {
         );
       });
 
-    /*
-     * «El torneo» es un acto clavado, así que su avance corre mientras la
-     * sección está pegada: hay que muestrear adentro del recorrido. Medido
-     * antes de que empiece, el avance vale 0 en los dos puntos y los planos no
-     * se movieron nunca.
-     */
     const irA = (fraccion: number) =>
       page.evaluate((f) => {
         const seccion = document.getElementById('torneo')!;
-        const caja = seccion.getBoundingClientRect();
-        const top = caja.top + window.scrollY;
-        const recorrido = caja.height - window.innerHeight;
-        window.scrollTo({ top: top + recorrido * f, behavior: 'instant' });
+        const top = seccion.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: top - window.innerHeight * f, behavior: 'instant' });
       }, fraccion);
 
-    await irA(0.15);
+    await irA(0.8);
     await page.waitForTimeout(400);
     const arriba = await desplazamientos();
 
-    await irA(0.85);
+    await irA(0.1);
     await page.waitForTimeout(400);
     const abajo = await desplazamientos();
 
@@ -436,129 +428,15 @@ test.describe('Las secciones se presentan', () => {
   });
 });
 
-test.describe('Un dispositivo por sección', () => {
-  test('«El torneo» se clava y el mazo se abre mientras tanto', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('html.sc-ready').waitFor();
-
-    const seccion = page.locator('#torneo');
-    const escenario = seccion.locator('.sc-stage');
-    const primera = page.locator('#torneo .deck-card').first();
-    const ultima = page.locator('#torneo .deck-card').last();
-
-    /** Lleva el scroll a una fracción del recorrido del acto. */
-    const irA = (f: number) =>
-      page.evaluate((fraccion) => {
-        const el = document.getElementById('torneo')!;
-        const caja = el.getBoundingClientRect();
-        const top = caja.top + window.scrollY;
-        window.scrollTo({
-          top: top + (caja.height - window.innerHeight) * fraccion,
-          behavior: 'instant',
-        });
-      }, f);
-
-    const transform = (donde: typeof primera) =>
-      donde.evaluate((el) => getComputedStyle(el).transform);
-
-    await irA(0.05);
-    await page.waitForTimeout(300);
-    const escenarioArriba = (await escenario.boundingBox())!.y;
-    const ultimaAlEmpezar = await transform(ultima);
-
-    await irA(0.9);
-    await page.waitForTimeout(300);
-    const escenarioAbajo = (await escenario.boundingBox())!.y;
-
-    // El escenario se queda quieto en pantalla mientras la página avanza: eso es
-    // que la sección esté clavada, y es de donde sale el recorrido del mazo.
-    expect(Math.abs(escenarioAbajo - escenarioArriba)).toBeLessThan(4);
-
-    // Y el mazo se abrió: la última tarjeta pasó de estar en el fondo a estar
-    // exactamente en su lugar de la grilla.
-    expect(await transform(ultima)).not.toBe(ultimaAlEmpezar);
-    expect(await transform(ultima)).toBe(await transform(primera));
-  });
-
-  test('el recorrido del acto clavado no sobra: el mazo termina cerca del final', async ({
-    page,
-  }) => {
-    /*
-     * Scroll que no cambia nada en pantalla es el defecto que más barato arruina
-     * un acto clavado: se sigue girando la rueda y la página parece trabada.
-     */
-    await page.goto('/');
-    await page.locator('html.sc-ready').waitFor();
-
-    const avance = await page.evaluate(() => {
-      const el = document.getElementById('torneo')!;
-      const ultima = [...el.querySelectorAll('.deck-card')].at(-1)!;
-      const caja = el.getBoundingClientRect();
-      const top = caja.top + window.scrollY;
-      const recorrido = caja.height - window.innerHeight;
-
-      // Se busca el primer punto donde la última tarjeta ya está en su lugar.
-      for (let f = 0; f <= 1.0001; f += 0.05) {
-        window.scrollTo({ top: top + recorrido * f, behavior: 'instant' });
-        const t = getComputedStyle(ultima).transform;
-        if (t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)') return f;
-      }
-      return 1;
-    });
-
-    expect(avance).toBeGreaterThan(0.6);
-  });
-
-  test('el cronograma se recorre de costado', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('html.sc-ready').waitFor();
-
-    const medidas = await page.evaluate(() => {
-      const riel = document.querySelector<HTMLElement>('#cronograma [data-sc-pan]')!;
-      return { sobresale: riel.scrollWidth - window.innerWidth };
-    });
-
-    /*
-     * Un riel más angosto que la ventana viaja **cero** y el acto se convierte en
-     * una pantalla quieta durante todo su recorrido. Es invisible en una captura
-     * y depende del ancho, así que puede estar bien en un teléfono y muerto en
-     * escritorio al mismo tiempo.
-     */
-    expect(medidas.sobresale).toBeGreaterThan(page.viewportSize()!.width * 0.4);
-
-    const riel = page.locator('#cronograma [data-sc-pan]');
-    const irA = (f: number) =>
-      page.evaluate((fraccion) => {
-        const el = document.getElementById('cronograma')!;
-        const caja = el.getBoundingClientRect();
-        window.scrollTo({
-          top: caja.top + window.scrollY + (caja.height - window.innerHeight) * fraccion,
-          behavior: 'instant',
-        });
-      }, f);
-
-    await irA(0.05);
-    await page.waitForTimeout(300);
-    const alEmpezar = (await riel.boundingBox())!.x;
-
-    await irA(0.95);
-    await page.waitForTimeout(300);
-    const alTerminar = (await riel.boundingBox())!.x;
-
-    expect(alEmpezar - alTerminar).toBeGreaterThan(medidas.sobresale * 0.7);
-  });
-});
-
 test.describe('Sin el motor de scroll', () => {
   test.use({ javaScriptEnabled: false });
 
   test('la página sigue completa y nada queda recortado', async ({ page }) => {
     /*
-     * Los escenarios del motor dejan el contenido pegado y recortado contando con
-     * que el motor esté vivo. Sin JavaScript no hay motor —ni React—, así que lo
-     * que se ve es el HTML del servidor con la red de seguridad del CSS puesta.
-     * Si esto se rompe, la página pierde secciones enteras en la peor situación
-     * posible, que es justo cuando algo ya falló.
+     * Sin JavaScript no hay motor de scroll —ni React—, así que lo que queda es
+     * el HTML del servidor solo. Ninguna animación de la página puede ser la
+     * dueña de mostrar contenido: si esto se rompe, la landing pierde secciones
+     * enteras justo cuando algo ya falló, que es la peor situación posible.
      */
     await page.goto('/');
 

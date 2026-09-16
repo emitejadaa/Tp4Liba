@@ -81,44 +81,6 @@
   --sc-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/*
- * Red de seguridad del motor de scroll-craft.
- *
- * Sus dispositivos de escenario dejan el contenido pegado y recortado, contando
- * con que el motor esté vivo para moverlo. Si no baja —red lenta, JavaScript
- * apagado, un error— eso sería contenido inalcanzable. El motor marca el `<html>`
- * con `.sc-ready` recién cuando terminó de montar, así que hasta entonces todo se
- * comporta como una página normal: el escenario no se pega, no recorta, y lo que
- * espera una señal se ve igual.
- *
- * Por eso además ningún efecto de esta landing usa `data-sc-cue` para mostrar
- * contenido: todos leen `--sc-p` con un valor por defecto que los deja en su
- * estado final. Sin motor no falta nada, sólo no se mueve.
- */
-html:not(.sc-ready) .sc-stage {
-  position: static;
-  height: auto;
-  overflow: visible;
-}
-
-html:not(.sc-ready) [data-sc-cue] {
-  opacity: 1;
-}
-
-/*
- * Sin motor, el riel se recorre a mano en vez de quedar cortado.
- *
- * El scroll va en el **escenario**, no en el riel: el riel mide lo que miden sus
- * ítems, así que no le sobra nada de sí mismo y ponérselo ahí no hace nada. Con
- * el `overflow` en el lugar equivocado el riel se sale de la página y se la puede
- * arrastrar mil doscientos píxeles para el costado.
- */
-html:not(.sc-ready) [data-sc-act='pan'] .sc-stage {
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-}
-
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -161,67 +123,6 @@ html:not(.sc-ready) [data-sc-act='pan'] .sc-stage {
 
 @layer utilities {
   /*
-   * El mazo que se abre.
-   *
-   * Las tarjetas arrancan apiladas en profundidad, una atrás de la otra y
-   * giradas, y se acomodan en su grilla a medida que avanza la sección. El
-   * avance sale de `--sc-p`, que publica el motor en el `<section>`, y cada
-   * tarjeta se retrasa según su `--i`, así llegan de a una en vez de todas
-   * juntas.
-   *
-   * La cuenta entera vive en CSS: son cuatro tarjetas moviéndose en 3D y no
-   * cuesta una sola línea de JavaScript por cuadro, porque el navegador las
-   * compone solo.
-   *
-   * El valor por defecto de `--sc-p` es 1 y no 0 a propósito: sin el motor, el
-   * mazo está abierto. Al revés, la sección se vería vacía.
-   *
-   * La última tarjeta termina de acomodarse en 0,85 del recorrido y no antes:
-   * lo que sobra después es scroll que no cambia nada en pantalla, que es el
-   * defecto que más barato arruina un acto clavado.
-   */
-  .deck-card {
-    --t: clamp(0, (var(--sc-p, 1) - var(--i, 0) * 0.1) / 0.55, 1);
-    --rest: calc(1 - var(--t));
-    transform: perspective(1400px)
-      translate3d(
-        calc(var(--rest) * var(--deck-x, 0px)),
-        calc(var(--rest) * 40px),
-        calc(var(--rest) * -460px)
-      )
-      rotateY(calc(var(--rest) * var(--deck-turn, -18deg))) rotateX(calc(var(--rest) * 7deg));
-    opacity: calc(0.12 + var(--t) * 0.88);
-    transform-origin: 50% 50%;
-    will-change: transform, opacity;
-  }
-
-  /*
-   * Los ítems del riel llegan escalonados.
-   *
-   * El desplazamiento lateral solo se lee como un carrusel; llegando en orden se
-   * lee como un cajón que se abre. El piso de opacidad es 0,55 y no 0 a propósito:
-   * un ítem a medio llegar tiene que leerse como que está llegando, no como que
-   * no cargó.
-   */
-  .rail-item {
-    --t: clamp(0, (var(--sc-p, 1) - var(--i, 0) * 0.07) / 0.5, 1);
-    opacity: calc(0.55 + var(--t) * 0.45);
-    transform: translate3d(0, calc((1 - var(--t)) * 22px), 0);
-    will-change: transform, opacity;
-  }
-
-  /*
-   * El barrido: la pieza se descubre de abajo hacia arriba mientras la sección
-   * entra. Es un `clip-path` y no una opacidad porque un barrido se lee como que
-   * algo se transforma, y una opacidad, como que algo aparece.
-   */
-  .wipe-up {
-    --w: clamp(0, (var(--sc-p, 1) - 0.12) / 0.3, 1);
-    clip-path: inset(0 0 calc((1 - var(--w)) * 100%) 0);
-    will-change: clip-path;
-  }
-
-  /*
    * Placa de profundidad: la pieza con la que se arma la perspectiva del scroll.
    *
    * La inclinación sale de `--sc-p`, el avance de la sección que publica el
@@ -263,57 +164,6 @@ html:not(.sc-ready) [data-sc-act='pan'] .sc-stage {
 }
 
 /*
- * Los actos clavados son de pantalla grande.
- *
- * Un escenario mide una pantalla de alto y recorta lo que sobra. En un teléfono
- * las cuatro tarjetas de «El torneo» van una debajo de la otra y no entran: la
- * mitad quedaría cortada, sin manera de llegar a ella. Así que por debajo de
- * tablet la sección vuelve a medir lo que mide su contenido, el escenario deja de
- * pegarse, y el mazo y el riel se muestran ya armados.
- *
- * El `!important` del alto no es pereza: lo escriben inline tanto el HTML como el
- * motor, y una regla de hoja de estilos no le gana a un estilo inline sin él.
- */
-@media (width < 48rem) {
-  [data-sc-act='pin'],
-  [data-sc-act='pan'] {
-    height: auto !important;
-    padding-block: 4rem;
-  }
-
-  [data-sc-act='pin'] .sc-stage {
-    position: static;
-    height: auto;
-    overflow: visible;
-  }
-
-  /* El riel sí se queda, pero se arrastra con el dedo, que en un teléfono es el
-     gesto natural para una fila de tarjetas. */
-  [data-sc-act='pan'] .sc-stage {
-    position: static;
-    height: auto;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-  }
-
-  [data-sc-act='pan'] [data-sc-pan] > * {
-    scroll-snap-align: center;
-  }
-
-  [data-sc-act='pan'] [data-sc-pan] {
-    transform: none !important;
-  }
-
-  .deck-card,
-  .rail-item {
-    transform: none !important;
-    opacity: 1 !important;
-  }
-}
-
-/*
  * Accesibilidad: quien pida menos movimiento no recibe ninguna animación.
  * Los componentes además consultan el mismo media query vía `useReducedMotion`
  * para no ejecutar animaciones de Motion ni bucles de requestAnimationFrame.
@@ -326,25 +176,6 @@ html:not(.sc-ready) [data-sc-act='pan'] .sc-stage {
   /* Las placas se quedan donde están: el giro es justo lo que se pidió no ver. */
   .depth-plate {
     transform: scale(var(--plate-scale, 1)) !important;
-  }
-
-  /*
-   * El mazo y el barrido terminan armados. Quien pidió menos movimiento ve la
-   * grilla y la tabla enteras, no una pila de tarjetas en el fondo esperando un
-   * scroll que no va a mover nada.
-   */
-  .deck-card {
-    transform: none !important;
-    opacity: 1 !important;
-  }
-
-  .wipe-up {
-    clip-path: none !important;
-  }
-
-  .rail-item {
-    transform: none !important;
-    opacity: 1 !important;
   }
 
   *,

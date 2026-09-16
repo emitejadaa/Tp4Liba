@@ -101,11 +101,6 @@ for (const pantalla of PANTALLAS) {
         for (const caja of document.querySelectorAll('main *')) {
           const overflow = getComputedStyle(caja).overflowX;
           if (overflow !== 'auto' && overflow !== 'scroll') continue;
-          // Sólo las tablas. El riel del cronograma se arrastra de costado a
-          // propósito: es su navegación, y con movimiento reducido el motor lo
-          // convierte justamente en una zona de scroll para que siga siendo
-          // alcanzable.
-          if (!caja.querySelector('table')) continue;
           const sobra = caja.scrollWidth - caja.clientWidth;
           if (sobra > 1)
             problemas.push(
