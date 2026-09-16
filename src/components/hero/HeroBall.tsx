@@ -1,24 +1,27 @@
 'use client';
 
 import { useMemo, useRef } from 'react';
-import { SEAMS, ballPaths } from '@/lib/ball-wireframe';
+import { animate, stagger, utils } from 'animejs';
+import { SEAMS, ballPaths } from '@/lib/ball-geometry';
+import { EASE_ANIME } from '@/lib/anim/ease';
 import { useIsomorphicLayoutEffect } from '@/hooks/useIsomorphicLayoutEffect';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 /**
- * La pelota del encabezado: dibujada, no renderizada.
+ * La pelota del encabezado.
  *
- * Es una esfera de verdad —las costuras se calculan en 3D y se proyectan cuadro
- * a cuadro, en `lib/ball-wireframe.ts`— pero llega a pantalla como trazos de SVG.
- * Eso le da tres cosas que la versión con WebGL no tenía: se ve nítida en
- * cualquier pantalla, pesa lo que pesan cuatro `<path>`, y habla el mismo idioma
- * que los íconos y las marcas de cancha del resto de la página en vez de ser el
- * único objeto fotográfico de la landing.
+ * Es un disco naranja con las costuras encima, plano como el resto de la página.
+ * Lo único que no es plano es el movimiento: las costuras se calculan como curvas
+ * sobre una esfera y se proyectan cuadro a cuadro (`lib/ball-geometry.ts`), así
+ * que barren la curvatura y desaparecen por el borde en vez de deslizarse sobre
+ * un círculo. Es la diferencia entre un dibujo que gira y una pelota girando, y
+ * es lo único que hay que hacer bien para que se sienta de calidad.
  *
- * Se mece despacio sola y el scroll la rota un poco más. Nada más: no se la
- * arrastra, no pica y no cambia de tamaño. Lo que hacía que molestara era
- * justamente eso, que se agrandaba al scrollear hasta que la sección la cortaba
- * por la mitad y se le metía abajo del nav.
+ * Todo lo demás es contención. Gira una vuelta cada cuarenta segundos —tan lento
+ * que no se la ve girar, se la nota distinta cada vez que se vuelve a mirar—, y
+ * flota un punto y medio de su radio en un ciclo de seis segundos que no coincide
+ * con el del giro, para que nunca se repita el mismo cuadro. Una sola cosa pasa
+ * rápido: la entrada, que dura un segundo y no vuelve a pasar.
  */
 
 /**
@@ -28,35 +31,21 @@ import { useReducedMotion } from '@/hooks/useReducedMotion';
  */
 export type ScrollSource = { get: () => number };
 
-/**
- * Inclinación del eje, en radianes.
- *
- * Poca a propósito: una pelota se reconoce por la costura vertical con el ecuador
- * cruzándola, y pasados los quince grados esa lectura se pierde y el dibujo
- * empieza a parecer un giroscopio.
- */
+/** Inclinación del eje, en radianes: la pelota se ve un poco desde arriba. */
 const TILT = -0.16;
 
-/**
- * La pelota se mece, no gira entera. Amplitud en radianes y período en segundos.
- *
- * No es una limitación técnica sino cómo se lee una pelota de básquet. De frente
- * se la reconoce por la costura vertical, el ecuador cruzándola y los dos arcos
- * abrazándola por los costados. A noventa grados de giro el eje de esos arcos
- * apunta a la cámara: los dos arcos se convierten en anillos concéntricos, la
- * costura vertical se superpone al contorno, y lo que queda parece un
- * giroscopio. Meciéndose dentro de los cincuenta grados nunca pasa por ahí, y
- * además es un movimiento mucho más tranquilo para algo que vive arriba de todo
- * en la página.
- */
-const SWING = 0.35;
-const SWING_SECONDS = 15;
+/** Segundos que tarda en dar una vuelta entera. */
+const TURN_SECONDS = 40;
 
-/** Cuánto la hace rotar recorrer el encabezado entero, en radianes. */
-const SCROLL_SWING = 0.5;
+/** Cuánto la hace rotar de más recorrer el encabezado, en radianes. */
+const SCROLL_SWING = 0.55;
+
+/** Flotación: cuánto sube y baja —en unidades de radio— y cada cuántos segundos. */
+const FLOAT = 0.03;
+const FLOAT_SECONDS = 6;
 
 /**
- * Puntos por costura. Con 96 la curva ya es lisa en una pelota de 440 px; subir
+ * Puntos por costura. Con 96 la curva ya es lisa en una pelota de 380 px; subir
  * no cambia un píxel y multiplica las cuentas por cuadro.
  */
 const STEPS = 96;
@@ -84,13 +73,32 @@ export function HeroBall({ scroll }: { scroll?: ScrollSource }) {
      * en `useSyncExternalStore`, que durante la hidratación devuelve el snapshot
      * del servidor —`false`, porque en el servidor no hay media queries— y recién
      * en el render siguiente entrega el valor real. Ese render de más alcanza
-     * para que el bucle arranque y la pelota se mueva unos grados ante alguien
-     * que pidió justamente que no se moviera nada.
+     * para que el bucle arranque y la pelota se mueva ante alguien que pidió
+     * justamente que no se moviera nada.
      */
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const fronts = [...svg.querySelectorAll<SVGPathElement>('[data-seam="front"]')];
-    const backs = [...svg.querySelectorAll<SVGPathElement>('[data-seam="back"]')];
+    const body = svg.querySelector<SVGGElement>('[data-ball="body"]');
+    const seams = [...svg.querySelectorAll<SVGPathElement>('[data-seam]')];
+    const shadow = svg.querySelector<SVGEllipseElement>('[data-ball="shadow"]');
+    const shadowIn = svg.querySelector<SVGGElement>('[data-ball="shadow-in"]');
+    if (!body || !shadow || !shadowIn) return;
+
+    /*
+     * La entrada. La pelota llega desde un poco más abajo y un poco más chica,
+     * la sombra se abre debajo de ella y las costuras se encienden de a una.
+     * Escalonar las costuras es lo que hace que se lea como una pelota que se
+     * arma y no como una imagen que aparece.
+     */
+    utils.set(body, { opacity: 0, scale: 0.94, y: 12 });
+    utils.set(shadowIn, { opacity: 0, scaleX: 0.7 });
+    utils.set(seams, { opacity: 0 });
+
+    const entrance = [
+      animate(body, { opacity: 1, scale: 1, y: 0, duration: 900, ease: EASE_ANIME }),
+      animate(shadowIn, { opacity: 1, scaleX: 1, duration: 900, delay: 120, ease: EASE_ANIME }),
+      animate(seams, { opacity: 1, duration: 520, delay: stagger(110, { start: 260 }) }),
+    ];
 
     let frame: number | null = null;
     let onScreen = true;
@@ -102,16 +110,20 @@ export function HeroBall({ scroll }: { scroll?: ScrollSource }) {
       frame = requestAnimationFrame(draw);
       elapsed = (now - start) / 1000;
 
-      const swing = Math.sin((elapsed / SWING_SECONDS) * Math.PI * 2) * SWING;
-      const spin = swing + (scroll?.get() ?? 0) * SCROLL_SWING;
+      // La flotación se escribe siempre: es lenta, y saltearla por umbral la
+      // convertiría en un movimiento a saltos en vez de un deslizamiento.
+      const float = Math.sin((elapsed / FLOAT_SECONDS) * Math.PI * 2) * FLOAT;
+      // La sombra se achica y se aclara cuando la pelota sube: es lo que hace
+      // leer la altura, más que el movimiento de la pelota en sí.
+      shadow.style.opacity = (0.5 - float * 5).toFixed(3);
+      body.style.setProperty('--float', `${(-float).toFixed(4)}`);
+
+      const spin = (elapsed / TURN_SECONDS) * Math.PI * 2 + (scroll?.get() ?? 0) * SCROLL_SWING;
       if (Math.abs(spin - lastSpin) < MIN_STEP) return;
       lastSpin = spin;
 
       const paths = ballPaths(spin, TILT, STEPS);
-      for (let i = 0; i < paths.length; i++) {
-        fronts[i]?.setAttribute('d', paths[i]!.front);
-        backs[i]?.setAttribute('d', paths[i]!.back);
-      }
+      for (let i = 0; i < paths.length; i++) seams[i]?.setAttribute('d', paths[i]!);
     };
 
     /*
@@ -148,6 +160,7 @@ export function HeroBall({ scroll }: { scroll?: ScrollSource }) {
 
     return () => {
       if (frame !== null) cancelAnimationFrame(frame);
+      for (const animation of entrance) animation.revert();
       observer?.disconnect();
       document.removeEventListener('visibilitychange', sync);
     };
@@ -157,61 +170,85 @@ export function HeroBall({ scroll }: { scroll?: ScrollSource }) {
     <div className="relative aspect-square w-full" data-testid="hero-ball">
       <svg
         ref={root}
-        /*
-         * El `viewBox` deja un margen respecto del radio 1 para que el trazo del
-         * contorno no quede cortado al ras por el borde del SVG.
-         */
-        viewBox="-1.06 -1.06 2.12 2.12"
-        className="text-orange size-full"
+        // Deja aire abajo para la sombra, que vive fuera del radio de la pelota.
+        viewBox="-1.08 -1.08 2.16 2.42"
+        className="size-full overflow-visible"
         aria-hidden="true"
         focusable="false"
       >
         {/*
-          `non-scaling-stroke` fija el grosor en píxeles de pantalla: la pelota
-          mide 280 px en un teléfono y 440 en escritorio, y con el trazo atado al
-          `viewBox` sería un dibujo fino en un lado y grueso en el otro.
+          La sombra es lo que apoya la pelota en la página. Es un degradé y no una
+          elipse plana porque un borde duro acá se lee como una mancha pegada
+          debajo; difusa, se lee como aire entre la pelota y el piso.
         */}
-        {/*
-          El cuerpo va relleno con el mismo tono de las tarjetas. Vacía, la
-          pelota se leía como un globo de alambre: se veían las cuatro costuras
-          enteras a la vez y, peor, se le transparentaban las marcas de cancha del
-          fondo, que la cruzaban de lado a lado.
-        */}
-        <circle
-          r="1"
-          fill="var(--color-ink-raised)"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          vectorEffect="non-scaling-stroke"
-        />
+        <defs>
+          <radialGradient id="liba-ball-shadow">
+            <stop offset="0%" stopColor="#020a14" stopOpacity="0.85" />
+            <stop offset="60%" stopColor="#020a14" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#020a14" stopOpacity="0" />
+          </radialGradient>
 
-        {/* El otro lado, apenas insinuado: es lo que le da volumen sin abrirla. */}
-        <g stroke="currentColor" strokeWidth="1" opacity="0.14" fill="none">
-          {SEAMS.map((_, index) => (
-            <path
-              key={`back-${index}`}
-              data-seam="back"
-              d={initial[index]?.back ?? ''}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
+          {/*
+            Las costuras se recortan contra el cuerpo. El trazo tiene ancho, así
+            que cerca de la silueta la mitad de ese ancho cae fuera del disco: sin
+            recorte se ven unas pestañas de tinta asomando por el borde, y la
+            pelota deja de tener un contorno limpio.
+          */}
+          <clipPath id="liba-ball-clip">
+            <circle r="1" />
+          </clipPath>
+        </defs>
+
+        {/*
+          Dos capas para la sombra, y no es de más: la entrada anima la opacidad
+          del grupo y el bucle escribe la de la elipse. Sobre la misma propiedad,
+          la entrada le pisaría el latido al bucle durante su primer segundo.
+        */}
+        <g data-ball="shadow-in" style={{ transformOrigin: '0 1.16px' }}>
+          <ellipse
+            data-ball="shadow"
+            cx="0"
+            cy="1.16"
+            rx="0.82"
+            ry="0.1"
+            fill="url(#liba-ball-shadow)"
+            style={{ opacity: 0.5 }}
+          />
         </g>
 
+        {/*
+          El cuerpo y las costuras van en el mismo grupo: la flotación los mueve a
+          los dos juntos, y `--float` la escribe el bucle sin tocar la escala ni
+          la posición que dejó la animación de entrada.
+        */}
         <g
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          fill="none"
-          suppressHydrationWarning
+          data-ball="body"
+          style={{ translate: '0 calc(var(--float, 0) * 1px)', transformOrigin: '0 0' }}
         >
-          {SEAMS.map((_, index) => (
-            <path
-              key={`front-${index}`}
-              data-seam="front"
-              d={initial[index]?.front ?? ''}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
+          <circle r="1" fill="var(--color-orange)" />
+
+          {/*
+            Las costuras son gruesas a propósito: en una pelota de básquet son
+            surcos anchos, y finas el disco se leería como un punto de color.
+            `non-scaling-stroke` fija el grosor en píxeles de pantalla, así la
+            pelota se ve igual midiendo 280 px en un teléfono o 380 en escritorio.
+          */}
+          <g
+            clipPath="url(#liba-ball-clip)"
+            stroke="var(--color-ink)"
+            strokeWidth="4"
+            strokeLinecap="butt"
+            fill="none"
+          >
+            {SEAMS.map((_, index) => (
+              <path
+                key={index}
+                data-seam=""
+                d={initial[index] ?? ''}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          </g>
         </g>
       </svg>
     </div>

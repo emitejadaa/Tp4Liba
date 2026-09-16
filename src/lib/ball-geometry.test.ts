@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Seam, Vec3 } from './ball-wireframe';
-import { SEAMS, ballPaths, rotate, seamPaths, seamPointAt, seamPoints } from './ball-wireframe';
+import type { Seam, Vec3 } from './ball-geometry';
+import { SEAMS, ballPaths, rotate, seamPath, seamPointAt, seamPoints } from './ball-geometry';
 
 const largo = ({ x, y, z }: Vec3) => Math.hypot(x, y, z);
 
@@ -125,12 +125,10 @@ describe('seamPoints', () => {
   });
 });
 
-describe('seamPaths', () => {
+describe('seamPath', () => {
   it('parte la curva donde cruza al otro lado de la esfera', () => {
     // Sin el corte, la línea cruzaría la pelota de lado a lado por el medio.
-    const { front, back } = seamPaths(conZ([1, 1, -1, -1]));
-    expect(tramos(front)).toBe(1);
-    expect(tramos(back)).toBe(1);
+    expect(tramos(seamPath(conZ([1, 1, -1, -1])))).toBe(1);
   });
 
   it('no parte en dos un tramo que cruza el final de la vuelta', () => {
@@ -139,76 +137,88 @@ describe('seamPaths', () => {
      * del array. Tratarlos como dos tramos dejaría un corte visible arriba de
      * todo de la pelota, siempre en el mismo lugar.
      */
-    const { front } = seamPaths(conZ([1, -1, -1, 1]));
-    expect(tramos(front)).toBe(1);
+    expect(tramos(seamPath(conZ([1, -1, -1, 1])))).toBe(1);
   });
 
   it('una curva que se ve entera sale cerrada y de una sola pieza', () => {
-    const { front, back } = seamPaths(conZ([1, 1, 1, 1]));
-    expect(tramos(front)).toBe(1);
-    expect(front.endsWith('Z')).toBe(true);
-    expect(back).toBe('');
+    const d = seamPath(conZ([1, 1, 1, 1]));
+    expect(tramos(d)).toBe(1);
+    expect(d.endsWith('Z')).toBe(true);
   });
 
-  it('una curva que quedó toda del otro lado no dibuja nada adelante', () => {
-    const { front, back } = seamPaths(conZ([-1, -1, -1, -1]));
-    expect(front).toBe('');
-    expect(back.endsWith('Z')).toBe(true);
+  it('una curva que quedó del otro lado no dibuja nada', () => {
+    // El cuerpo de la pelota es opaco: la mitad de atrás está tapada por la
+    // pelota misma, así que dibujarla sería pintar encima del disco.
+    expect(seamPath(conZ([-1, -1, -1, -1]))).toBe('');
   });
 
-  it('descarta los tramos de un solo punto, que no son una línea', () => {
-    const { front } = seamPaths(conZ([1, -1, 1, -1]));
-    expect(front).toBe('');
+  it('un tramo que asoma apenas igual se dibuja, anclado en los dos bordes', () => {
+    /*
+     * Entre dos puntos muestreados que quedaron atrás hay un pedacito de costura
+     * que sí se ve. Antes se descartaba por tener un solo punto y la costura
+     * parpadeaba al acercarse al borde; con los cruces calculados es un arco
+     * corto y completo.
+     */
+    const d = seamPath(conZ([1, -1, 1, -1]));
+    expect(tramos(d)).toBe(2);
+  });
+
+  it('las puntas de cada tramo caen justo sobre la silueta', () => {
+    // Si terminaran en el último punto muestreado quedaría un diente de un par
+    // de píxeles que aparece y desaparece mientras la pelota gira.
+    const d = seamPath(seamPoints(SEAMS[1]!, 0.4, -0.16, 48));
+    const [primerX, primerY] = d.slice(1).split(/[ ]/).slice(0, 2).map(Number) as [number, number];
+    // La tolerancia es la del redondeo a tres decimales del propio trazado, no
+    // la de la cuenta: lo que se mide acá es el texto que se escribe en el DOM.
+    expect(Math.hypot(primerX, primerY)).toBeCloseTo(1, 3);
   });
 
   it('invierte la vertical, porque en SVG la `y` crece hacia abajo', () => {
-    const { front } = seamPaths([
+    const d = seamPath([
       { x: 0, y: 0.5, z: 1 },
       { x: 1, y: 0.5, z: 1 },
     ]);
-    expect(front).toContain('-0.5');
+    expect(d).toContain('-0.5');
   });
 
   it('redondea: un trazado con dieciséis decimales por número pesa de más', () => {
-    const { front } = seamPaths(seamPoints(SEAMS[0]!, 0.7, -0.3, 24));
-    for (const numero of front.match(/-?\d+\.?\d*/g) ?? []) {
+    const d = seamPath(seamPoints(SEAMS[0]!, 0.7, -0.16, 24));
+    for (const numero of d.match(/-?\d+\.?\d*/g) ?? []) {
       const decimales = numero.split('.')[1]?.length ?? 0;
       expect(decimales).toBeLessThanOrEqual(3);
     }
   });
 
-  it('con la lista vacía devuelve dos trazados vacíos', () => {
-    expect(seamPaths([])).toEqual({ front: '', back: '' });
+  it('con la lista vacía devuelve un trazado vacío', () => {
+    expect(seamPath([])).toBe('');
   });
 });
 
 describe('ballPaths', () => {
   it('dibuja las cuatro costuras', () => {
-    expect(ballPaths(0.4, -0.3)).toHaveLength(4);
+    expect(ballPaths(0.4, -0.16)).toHaveLength(4);
   });
 
   it('a cualquier giro, siempre hay costura a la vista', () => {
-    // Una pelota que en algún ángulo se queda sin líneas se ve como un círculo.
+    // Una pelota que en algún ángulo se queda sin líneas se ve como un disco de
+    // color. Es el chequeo que atrapa una proyección con el signo cambiado.
     for (let spin = 0; spin < Math.PI * 2; spin += 0.25) {
-      const visibles = ballPaths(spin, -0.3).filter((seam) => seam.front.length > 0);
+      const visibles = ballPaths(spin, -0.16).filter((d) => d.length > 0);
       expect(visibles.length).toBeGreaterThanOrEqual(2);
     }
   });
 
   it('nunca escribe un `NaN` en un trazado', () => {
     for (let spin = 0; spin < Math.PI * 2; spin += 0.3) {
-      for (const seam of ballPaths(spin, -0.3)) {
-        expect(seam.front).not.toContain('NaN');
-        expect(seam.back).not.toContain('NaN');
-      }
+      for (const d of ballPaths(spin, -0.16)) expect(d).not.toContain('NaN');
     }
   });
 
   it('es determinista: el mismo giro da el mismo dibujo', () => {
-    expect(ballPaths(1.23, -0.3)).toEqual(ballPaths(1.23, -0.3));
+    expect(ballPaths(1.23, -0.16)).toEqual(ballPaths(1.23, -0.16));
   });
 
   it('gira: dos ángulos distintos dan dibujos distintos', () => {
-    expect(ballPaths(0, -0.3)).not.toEqual(ballPaths(0.6, -0.3));
+    expect(ballPaths(0, -0.16)).not.toEqual(ballPaths(0.6, -0.16));
   });
 });

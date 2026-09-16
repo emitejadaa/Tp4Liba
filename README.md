@@ -133,17 +133,24 @@ cambió de lugar.
   sección. No se nota en la transición; se nota al llegar abajo.
 - **Un solo idioma para «esto cambió».** La solapa que gira desde su borde de arriba está en las
   filas de la tabla, en los números del marcador y en el pase entre secciones.
-- **La pelota del encabezado es geometría, dibujada con líneas.** Las cuatro costuras de una pelota
-  de ocho paneles son curvas sobre una esfera: se las calcula en 3D, se las gira y se las proyecta a
-  trazos de SVG, cuadro a cuadro (`lib/ball-wireframe.ts`). Se mece despacio y el scroll la rota un
-  poco más, dentro de un arco de cincuenta grados: pasado eso, el eje de los arcos laterales apunta a
-  la cámara, se convierten en anillos concéntricos y la pelota deja de leerse como pelota.
+- **La pelota del encabezado es un disco plano, y el movimiento es lo único que no lo es.** Las
+  cuatro costuras de una pelota de ocho paneles son curvas sobre una esfera: se calculan en 3D, se
+  giran y se proyectan a trazos de SVG cuadro a cuadro (`lib/ball-geometry.ts`), así que barren la
+  curvatura y desaparecen por el borde en vez de deslizarse sobre un círculo. Es la diferencia entre
+  un dibujo que gira y una pelota girando, y es lo único que hay que hacer bien para que se sienta
+  de calidad.
 
-  Antes era una esfera de Three.js con textura y matcap, y se fue por tres razones. Llegaba a
-  pantalla ya rasterizada, con el borde lavado. Crecía a 1,35 al scrollear, así que a media pantalla
-  la sección la cortaba al ras y el resto quedaba atrás del nav. Y era el único objeto fotográfico
-  de una página hecha de líneas finas. La versión vectorial se ve nítida en cualquier pantalla, pesa
-  cuatro `<path>`, y sacó `three` y `@react-three/fiber` del bundle.
+  Todo lo demás es contención: una vuelta cada cuarenta segundos, tan lento que no se la ve girar
+  sino distinta cada vez que se la vuelve a mirar, y una flotación de tres centésimas de radio en un
+  ciclo de seis segundos que no coincide con el del giro, para que nunca se repita el mismo cuadro.
+  Una sola cosa pasa rápido: la entrada, que dura un segundo, llega desde abajo, abre la sombra y
+  enciende las costuras de a una. Y no vuelve a pasar.
+
+  Antes fue una esfera de Three.js con textura y matcap, y después un globo de alambre. La primera
+  llegaba rasterizada, crecía a 1,35 al scrollear hasta que la sección la cortaba al ras, y era el
+  único objeto fotográfico de una página de líneas finas. El alambre se leía como un diagrama
+  técnico: sin cuerpo no se distingue el frente del fondo, y a noventa grados de giro los arcos
+  laterales se convierten en anillos concéntricos.
 
 - **Las tarjetas se inclinan en 3D hacia el puntero**, y la luz que las cruza es una sola por sección
   en vez de una por tarjeta.

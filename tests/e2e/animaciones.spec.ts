@@ -98,7 +98,7 @@ test.describe('Pelota del encabezado', () => {
 
     // Las costuras se recalculan cuadro a cuadro desde la geometría de la
     // esfera, así que el trazado cambia justamente porque la pelota está girando.
-    const costura = page.locator('#inicio [data-seam="front"]').first();
+    const costura = page.locator('#inicio [data-seam]').first();
     const trazado = () => costura.getAttribute('d');
 
     const antes = await trazado();
@@ -113,7 +113,7 @@ test.describe('Pelota del encabezado', () => {
     // cuatro costuras son trazos, y se ven nítidas a cualquier tamaño.
     await expect(page.locator('#inicio canvas')).toHaveCount(0);
     await expect(page.locator('#inicio [data-testid="hero-ball"] svg')).toHaveCount(1);
-    await expect(page.locator('#inicio [data-seam="front"]')).toHaveCount(4);
+    await expect(page.locator('#inicio [data-seam]')).toHaveCount(4);
   });
 
   test('no se agranda al scrollear ni se sale de su sección', async ({ page }) => {
@@ -149,8 +149,8 @@ test.describe('Pelota del encabezado con movimiento reducido', () => {
     await page.goto('/');
 
     // No es que desaparezca: el mismo dibujo, sin bucle de animación detrás.
-    const costura = page.locator('#inicio [data-seam="front"]').first();
-    await expect(page.locator('#inicio [data-seam="front"]')).toHaveCount(4);
+    const costura = page.locator('#inicio [data-seam]').first();
+    await expect(page.locator('#inicio [data-seam]')).toHaveCount(4);
 
     const antes = await costura.getAttribute('d');
     expect(antes).toBeTruthy();

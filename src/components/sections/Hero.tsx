@@ -134,7 +134,7 @@ export function Hero({ onRegister }: { onRegister?: () => void }) {
 
         <motion.div
           style={prefersReduced ? undefined : { y: ballY, x: ballX }}
-          className="relative flex w-full max-w-[280px] shrink-0 items-center justify-center sm:max-w-[360px] lg:w-[440px] lg:max-w-none"
+          className="relative flex w-full max-w-[280px] shrink-0 items-center justify-center sm:max-w-[340px] lg:w-[380px] lg:max-w-none"
         >
           <motion.div
             initial={prefersReduced ? undefined : { opacity: 0, scale: 0.85 }}

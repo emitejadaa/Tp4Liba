@@ -3,10 +3,24 @@ import { describe, expect, it } from 'vitest';
 import { HeroBall } from './HeroBall';
 
 describe('HeroBall', () => {
-  it('dibuja las cuatro costuras, de los dos lados de la esfera', () => {
+  it('dibuja las cuatro costuras', () => {
     const { container } = render(<HeroBall />);
-    expect(container.querySelectorAll('[data-seam="front"]')).toHaveLength(4);
-    expect(container.querySelectorAll('[data-seam="back"]')).toHaveLength(4);
+    expect(container.querySelectorAll('[data-seam]')).toHaveLength(4);
+  });
+
+  it('el cuerpo es un disco lleno con el naranja de la marca', () => {
+    // Vacía se leía como un globo de alambre: un diagrama, no una pelota.
+    const { container } = render(<HeroBall />);
+    // Se busca dentro del cuerpo: en `defs` hay otro círculo, el del recorte.
+    expect(container.querySelector('[data-ball="body"] circle')).toHaveAttribute(
+      'fill',
+      'var(--color-orange)',
+    );
+  });
+
+  it('la apoya con una sombra debajo', () => {
+    const { container } = render(<HeroBall />);
+    expect(container.querySelector('[data-ball="shadow"]')).toBeInTheDocument();
   });
 
   it('sale dibujada del primer render, sin esperar a ninguna animación', () => {
@@ -16,7 +30,7 @@ describe('HeroBall', () => {
      * JavaScript quedaría un hueco del tamaño de la pelota en el encabezado.
      */
     const { container } = render(<HeroBall />);
-    for (const costura of container.querySelectorAll('[data-seam="front"]')) {
+    for (const costura of container.querySelectorAll('[data-seam]')) {
       expect(costura.getAttribute('d')).toMatch(/^M-?\d/);
     }
   });
@@ -26,14 +40,28 @@ describe('HeroBall', () => {
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('fija el grosor del trazo en píxeles de pantalla', () => {
-    // La pelota mide 280 px en un teléfono y 440 en escritorio; atado al
+  it('fija el grosor de las costuras en píxeles de pantalla', () => {
+    // La pelota mide 280 px en un teléfono y 380 en escritorio; atado al
     // `viewBox`, el mismo dibujo saldría fino de un lado y grueso del otro.
     const { container } = render(<HeroBall />);
-    for (const trazo of container.querySelectorAll('[vector-effect]')) {
+    const conTrazo = container.querySelectorAll('[vector-effect]');
+
+    expect(conTrazo).toHaveLength(4);
+    for (const trazo of conTrazo) {
       expect(trazo).toHaveAttribute('vector-effect', 'non-scaling-stroke');
+      expect(trazo).toHaveAttribute('data-seam');
     }
-    expect(container.querySelectorAll('[vector-effect]').length).toBeGreaterThan(4);
+  });
+
+  it('recorta las costuras contra el cuerpo', () => {
+    // El trazo tiene ancho: cerca de la silueta, la mitad cae fuera del disco y
+    // se ven pestañas de tinta asomando por el borde.
+    const { container } = render(<HeroBall />);
+    expect(container.querySelector('clipPath')).toBeInTheDocument();
+    expect(container.querySelector('[data-seam]')?.closest('g')).toHaveAttribute(
+      'clip-path',
+      'url(#liba-ball-clip)',
+    );
   });
 
   it('no monta un lienzo: la pelota es vectorial', () => {
