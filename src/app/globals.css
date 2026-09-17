@@ -123,6 +123,28 @@
 
 @layer utilities {
   /*
+   * El flote de la pelota del minijuego mientras espera un tiro.
+   *
+   * Va en CSS y no en el bucle del juego porque tiene que convivir con él: el
+   * simulador le escribe la posición al grupo de afuera en cada cuadro, y este
+   * grupo de adentro se mueve aparte. En el mismo nodo, una cosa le pisaría la
+   * transformación a la otra y el flote no se vería nunca.
+   */
+  @keyframes ball-idle {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-7px);
+    }
+  }
+
+  .ball-idle {
+    animation: ball-idle 2.2s ease-in-out infinite;
+  }
+
+  /*
    * Placa de profundidad: la pieza con la que se arma la perspectiva del scroll.
    *
    * La inclinación sale de `--sc-p`, el avance de la sección que publica el

@@ -1,161 +1,191 @@
 import { describe, expect, it } from 'vitest';
 import type { GameState } from './shootout';
 import {
-  BASE_ZONE_HALF_WIDTH,
   INITIAL_STATE,
-  MAX_SPEED,
-  MIN_ZONE_HALF_WIDTH,
-  aimSpeed,
-  computeShot,
+  MAX_WIND,
+  WIND_FROM_STREAK,
+  confettiCount,
+  describeWind,
   feedbackFor,
   shootoutReducer,
   shotPoints,
-  zoneHalfWidth,
+  windFor,
 } from './shootout';
 
-/** Estado con la mira puesta a mano, para probar tiros concretos. */
-const at = (aim: number, extra: Partial<GameState> = {}): GameState => ({
-  ...INITIAL_STATE,
-  aim,
-  ...extra,
-});
+/** Estado con algunos campos puestos a mano, para probar jugadas concretas. */
+const at = (extra: Partial<GameState> = {}): GameState => ({ ...INITIAL_STATE, ...extra });
 
-describe('zoneHalfWidth', () => {
-  it('arranca en el ancho base', () => {
-    expect(zoneHalfWidth(0)).toBe(BASE_ZONE_HALF_WIDTH);
+/** Un tiro entero: sale y se resuelve. */
+const play = (state: GameState, result: 'perfect' | 'in' | 'miss') =>
+  shootoutReducer(shootoutReducer(state, { type: 'SHOOT' }), { type: 'RESOLVE', result });
+
+describe('shootoutReducer · AIM', () => {
+  it('guarda la puntería', () => {
+    const next = shootoutReducer(INITIAL_STATE, { type: 'AIM', aim: { angle: 40, power: 0.3 } });
+    expect(next.aim).toEqual({ angle: 40, power: 0.3 });
   });
 
-  it('se angosta a medida que crece la racha', () => {
-    expect(zoneHalfWidth(3)).toBeLessThan(zoneHalfWidth(0));
-  });
-
-  it('nunca baja del mínimo, para que el juego siga siendo posible', () => {
-    expect(zoneHalfWidth(1000)).toBe(MIN_ZONE_HALF_WIDTH);
-  });
-});
-
-describe('aimSpeed', () => {
-  it('acelera con la racha', () => {
-    expect(aimSpeed(5)).toBeGreaterThan(aimSpeed(0));
-  });
-
-  it('tiene tope', () => {
-    expect(aimSpeed(1000)).toBe(MAX_SPEED);
+  it('no deja apuntar con la pelota en el aire', () => {
+    // El tiro ya salió: corregir el ángulo a mitad de vuelo cambiaría el
+    // resultado de un tiro que ya está decidido.
+    const volando = at({ shooting: true });
+    expect(shootoutReducer(volando, { type: 'AIM', aim: { angle: 10, power: 1 } })).toBe(volando);
   });
 });
 
-describe('computeShot', () => {
-  it('es perfecto en el centro exacto', () => {
-    expect(computeShot(0.5, 0)).toBe('perfect');
+describe('shootoutReducer · SHOOT', () => {
+  it('cuenta el tiro apenas sale', () => {
+    // El contador sube cuando la pelota sale de la mano, no cuando cae: si
+    // esperara al final, tirar y ver «Tiros 0» durante un segundo se leería
+    // como que el juego no registró el tiro.
+    const next = shootoutReducer(INITIAL_STATE, { type: 'SHOOT' });
+    expect(next.attempts).toBe(1);
+    expect(next.shooting).toBe(true);
+    expect(next.shotId).toBe(INITIAL_STATE.shotId + 1);
   });
 
-  it('entra dentro de la zona pero fuera del centro', () => {
-    expect(computeShot(0.5 + BASE_ZONE_HALF_WIDTH * 0.8, 0)).toBe('in');
+  it('limpia el resultado anterior', () => {
+    const next = shootoutReducer(at({ lastResult: 'perfect' }), { type: 'SHOOT' });
+    expect(next.lastResult).toBeNull();
   });
 
-  it('falla fuera de la zona', () => {
-    expect(computeShot(0.5 + BASE_ZONE_HALF_WIDTH * 1.5, 0)).toBe('miss');
+  it('no se puede tirar dos veces a la vez', () => {
+    const volando = shootoutReducer(INITIAL_STATE, { type: 'SHOOT' });
+    expect(shootoutReducer(volando, { type: 'SHOOT' })).toBe(volando);
+  });
+});
+
+describe('shootoutReducer · RESOLVE', () => {
+  it('suma la encestada y la racha', () => {
+    const next = play(INITIAL_STATE, 'perfect');
+    expect(next.made).toBe(1);
+    expect(next.attempts).toBe(1);
+    expect(next.streak).toBe(1);
+    expect(next.lastResult).toBe('perfect');
+    expect(next.shooting).toBe(false);
   });
 
-  it('trata igual los dos lados de la barra', () => {
-    const offset = BASE_ZONE_HALF_WIDTH * 0.8;
-    expect(computeShot(0.5 - offset, 0)).toBe(computeShot(0.5 + offset, 0));
+  it('un tiro que entró rebotando también suma', () => {
+    expect(play(INITIAL_STATE, 'in').made).toBe(1);
   });
 
-  it('un tiro que entraba con racha 0 puede fallar con la zona angostada', () => {
-    const aim = 0.5 + BASE_ZONE_HALF_WIDTH * 0.95;
-    expect(computeShot(aim, 0)).toBe('in');
-    expect(computeShot(aim, 6)).toBe('miss');
+  it('el fallo cuenta el tiro pero no la encestada', () => {
+    const next = play(INITIAL_STATE, 'miss');
+    expect(next.attempts).toBe(1);
+    expect(next.made).toBe(0);
+    expect(next.streak).toBe(0);
+  });
+
+  it('corta la racha al fallar', () => {
+    expect(play(at({ streak: 6 }), 'miss').streak).toBe(0);
+  });
+
+  it('guarda la mejor racha aunque después se corte', () => {
+    const buena = play(at({ streak: 4, best: 4 }), 'in');
+    expect(buena.best).toBe(5);
+    expect(play(buena, 'miss').best).toBe(5);
+  });
+
+  it('no resuelve un tiro que no salió', () => {
+    expect(shootoutReducer(INITIAL_STATE, { type: 'RESOLVE', result: 'perfect' })).toBe(
+      INITIAL_STATE,
+    );
+  });
+});
+
+describe('windFor', () => {
+  it('los primeros tiros no tienen viento', () => {
+    // Son para agarrarle la mano al arrastre; con viento desde el primero, no
+    // se llega a saber qué hizo fallar el tiro.
+    for (let streak = 0; streak < WIND_FROM_STREAK; streak += 1) {
+      expect(windFor(streak, 1)).toBe(0);
+    }
+  });
+
+  it('aparece con la racha', () => {
+    expect(windFor(WIND_FROM_STREAK, 1)).not.toBe(0);
+  });
+
+  it('crece con la racha', () => {
+    expect(Math.abs(windFor(10, 2))).toBeGreaterThan(Math.abs(windFor(3, 2)));
+  });
+
+  it('tiene tope, para que el juego siga siendo posible', () => {
+    for (let streak = 0; streak < 200; streak += 1) {
+      expect(Math.abs(windFor(streak, streak))).toBeLessThanOrEqual(MAX_WIND);
+    }
+  });
+
+  it('cambia de lado entre tiros', () => {
+    expect(Math.sign(windFor(8, 4))).not.toBe(Math.sign(windFor(8, 5)));
+  });
+
+  it('no siempre sopla con la misma fuerza', () => {
+    const fuerzas = new Set([0, 1, 2, 3].map((i) => Math.abs(windFor(8, 2 + i * 2))));
+    expect(fuerzas.size).toBeGreaterThan(1);
+  });
+
+  it('sale del número de tiro y no del azar', () => {
+    // Dos partidas con los mismos tiros se ven igual, y un test que falla se
+    // puede reproducir.
+    expect(windFor(7, 13)).toBe(windFor(7, 13));
+  });
+
+  it('se sortea con la racha ya actualizada y para el tiro que viene', () => {
+    // Se guarda al resolver y no al tirar, así se lo puede ver —y corregir el
+    // arrastre— antes de soltar el próximo.
+    const next = play(at({ streak: WIND_FROM_STREAK }), 'in');
+    expect(next.wind).toBe(windFor(next.streak, next.shotId + 1));
+  });
+});
+
+describe('shootoutReducer · RESET', () => {
+  it('vuelve a cero pero conserva el récord y la puntería', () => {
+    const jugado = play(at({ best: 6, aim: { angle: 40, power: 0.3 } }), 'in');
+    const next = shootoutReducer(jugado, { type: 'RESET' });
+    expect(next).toEqual({ ...INITIAL_STATE, best: 6, aim: { angle: 40, power: 0.3 } });
   });
 });
 
 describe('shotPoints', () => {
-  it('da 3 al perfecto, 2 al que entra y 0 al fallo', () => {
+  it('da 3 a la limpia, 2 a la que rebotó y 0 al fallo', () => {
     expect(shotPoints('perfect')).toBe(3);
     expect(shotPoints('in')).toBe(2);
     expect(shotPoints('miss')).toBe(0);
   });
 });
 
-describe('shootoutReducer · TICK', () => {
-  it('mueve la mira en la dirección actual', () => {
-    const next = shootoutReducer(at(0.5), { type: 'TICK', deltaSeconds: 0.1 });
-    expect(next.aim).toBeGreaterThan(0.5);
-  });
-
-  it('rebota al llegar al borde derecho', () => {
-    const next = shootoutReducer(at(0.98), { type: 'TICK', deltaSeconds: 0.2 });
-    expect(next.direction).toBe(-1);
-    expect(next.aim).toBeLessThanOrEqual(1);
-  });
-
-  it('rebota al llegar al borde izquierdo', () => {
-    const next = shootoutReducer(at(0.02, { direction: -1 }), {
-      type: 'TICK',
-      deltaSeconds: 0.2,
-    });
-    expect(next.direction).toBe(1);
-    expect(next.aim).toBeGreaterThanOrEqual(0);
-  });
-
-  it('se mantiene dentro de la barra aunque el frame llegue muy tarde', () => {
-    // Una pestaña en segundo plano puede acumular varios segundos en un frame.
-    const next = shootoutReducer(at(0.5), { type: 'TICK', deltaSeconds: 12 });
-    expect(next.aim).toBeGreaterThanOrEqual(0);
-    expect(next.aim).toBeLessThanOrEqual(1);
-  });
-});
-
-describe('shootoutReducer · SHOOT', () => {
-  it('cuenta el tiro y la encestada', () => {
-    const next = shootoutReducer(at(0.5), { type: 'SHOOT' });
-    expect(next.attempts).toBe(1);
-    expect(next.made).toBe(1);
-    expect(next.streak).toBe(1);
-    expect(next.lastResult).toBe('perfect');
-  });
-
-  it('cuenta el tiro pero no la encestada al fallar', () => {
-    const next = shootoutReducer(at(0.95), { type: 'SHOOT' });
-    expect(next.attempts).toBe(1);
-    expect(next.made).toBe(0);
-    expect(next.lastResult).toBe('miss');
-  });
-
-  it('corta la racha al fallar', () => {
-    const next = shootoutReducer(at(0.95, { streak: 4 }), { type: 'SHOOT' });
-    expect(next.streak).toBe(0);
-  });
-
-  it('guarda la mejor racha aunque después se corte', () => {
-    const scored = shootoutReducer(at(0.5, { streak: 4, best: 4 }), { type: 'SHOOT' });
-    expect(scored.best).toBe(5);
-
-    const missed = shootoutReducer({ ...scored, aim: 0.95 }, { type: 'SHOOT' });
-    expect(missed.streak).toBe(0);
-    expect(missed.best).toBe(5);
-  });
-
-  it('avanza el identificador de tiro para poder reiniciar la animación', () => {
-    const next = shootoutReducer(at(0.5), { type: 'SHOOT' });
-    expect(next.shotId).toBe(INITIAL_STATE.shotId + 1);
-  });
-});
-
-describe('shootoutReducer · RESET', () => {
-  it('vuelve a cero pero conserva el récord', () => {
-    const next = shootoutReducer(at(0.9, { made: 3, attempts: 7, streak: 2, best: 6 }), {
-      type: 'RESET',
-    });
-    expect(next).toEqual({ ...INITIAL_STATE, best: 6 });
-  });
-});
-
 describe('feedbackFor', () => {
-  it('usa los mensajes del diseño', () => {
-    expect(feedbackFor(null)).toBe('Esperá la zona naranja');
-    expect(feedbackFor('in')).toBe('¡Adentro! +2');
-    expect(feedbackFor('perfect')).toBe('¡Triple! +3');
-    expect(feedbackFor('miss')).toBe('Afuera. Probá de nuevo');
+  it('avisa mientras la pelota está en el aire', () => {
+    expect(feedbackFor(null, true)).toBe('Ahí va…');
+    expect(feedbackFor('perfect', true)).toBe('Ahí va…');
+  });
+
+  it('distingue la limpia de la que entró rebotando', () => {
+    expect(feedbackFor('perfect', false)).toBe('¡Limpia! +3');
+    expect(feedbackFor('in', false)).toBe('¡Adentro! +2');
+  });
+
+  it('explica qué hacer antes del primer tiro', () => {
+    expect(feedbackFor(null, false)).toBe('Arrastrá para apuntar');
+  });
+
+  it('invita a seguir después de un fallo', () => {
+    expect(feedbackFor('miss', false)).toBe('Afuera. Probá de nuevo');
+  });
+});
+
+describe('confettiCount', () => {
+  it('la limpia larga más confeti que la que rebotó, y el fallo ninguno', () => {
+    expect(confettiCount('perfect')).toBeGreaterThan(confettiCount('in'));
+    expect(confettiCount('miss')).toBe(0);
+  });
+});
+
+describe('describeWind', () => {
+  it('dice para dónde sopla y cuánto', () => {
+    expect(describeWind(0)).toBe('Sin viento');
+    expect(describeWind(MAX_WIND)).toBe('Viento a favor, 100%');
+    expect(describeWind(-MAX_WIND)).toBe('Viento en contra, 100%');
   });
 });

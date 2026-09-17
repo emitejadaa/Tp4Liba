@@ -1,36 +1,50 @@
 'use client';
 
-import { useCallback, useEffect, useReducer } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { AimBar } from './AimBar';
-import { Confetti } from './Confetti';
-import { GameBall, Hoop } from './Hoop';
+import { useCallback, useEffect, useReducer, type KeyboardEvent } from 'react';
+import { AimMeter } from './AimMeter';
+import { Court } from './Court';
 import { ScoreStats } from './ScoreStats';
 import { StreakFire } from './StreakFire';
 import { Button } from '@/components/ui/Button';
-import { useInView } from '@/hooks/useInView';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { INITIAL_STATE, feedbackFor, shootoutReducer, shotPoints } from '@/lib/minigame/shootout';
+import { clampAim, describeAim, type Aim } from '@/lib/minigame/aim';
+import {
+  INITIAL_STATE,
+  describeWind,
+  feedbackFor,
+  shootoutReducer,
+  type ShotResult,
+} from '@/lib/minigame/shootout';
 import { shotsToNextTier, streakTier } from '@/lib/minigame/streak';
-import { confettiCount, shotArc } from '@/lib/minigame/trajectory';
 import { cn } from '@/lib/cn';
 
 const BEST_STREAK_KEY = 'liba:mejor-racha';
 
-/** Pasos discretos que da la mira con `prefers-reduced-motion`. */
-const REDUCED_MOTION_STEP_MS = 320;
+/** Cuánto mueve cada flecha del teclado. */
+const ANGLE_STEP = 2;
+const POWER_STEP = 0.03;
 
 /**
  * Minijuego «Tirá al aro».
  *
- * La mira recorre la barra sola y hay que tirar cuando pasa por la zona naranja.
- * Todo el estado lo maneja el reducer de `lib/minigame/shootout`; acá sólo se lo
- * dibuja y se lo hace avanzar.
+ * Se apunta arrastrando: con el dedo o con el mouse, desde cualquier punto de la
+ * cancha y hacia donde se quiere que vaya la pelota. El arrastre trae los dos
+ * números que definen un tiro —para dónde apunta es el ángulo, cuánto se
+ * arrastró es la fuerza— así que no hay dos controles sino un gesto, y no hay
+ * dos tiros iguales.
+ *
+ * Lo que pasa después no está escrito en ningún lado: la pelota la mueve el
+ * simulador de `lib/minigame/physics.ts`, que integra gravedad y viento y
+ * resuelve los choques contra el frente del aro, el fondo y la tabla. Un tiro
+ * que pega en el aro puede entrar igual, y eso no es una animación elegida sino
+ * el resultado de la cuenta.
+ *
+ * Entra limpia vale 3 y entra rebotando vale 2. La racha —y su fuego— quedan
+ * como estaban: son lo que hace que un tiro importe más que el anterior.
  */
 export function ShootoutGame() {
   const [state, dispatch] = useReducer(shootoutReducer, INITIAL_STATE);
-  const { ref, inView } = useInView<HTMLDivElement>({ threshold: 0.25, once: false });
   const prefersReduced = useReducedMotion();
   const [storedBest, setStoredBest] = useLocalStorage(BEST_STREAK_KEY, 0);
 
@@ -39,93 +53,70 @@ export function ShootoutGame() {
     if (state.best > storedBest) setStoredBest(state.best);
   }, [state.best, storedBest, setStoredBest]);
 
+  const onAim = useCallback((aim: Aim) => dispatch({ type: 'AIM', aim }), []);
+  const onShoot = useCallback((aim?: Aim) => dispatch({ type: 'SHOOT', aim }), []);
+  const onResolve = useCallback((result: ShotResult) => dispatch({ type: 'RESOLVE', result }), []);
+
   /*
-   * El bucle de animación corre únicamente cuando la sección está a la vista y
-   * la pestaña está activa: no tiene sentido gastar frames —ni batería— moviendo
-   * una mira que nadie ve. `deltaSeconds` se toma del reloj real y no de un
-   * valor fijo, así la velocidad no depende de los Hz de la pantalla.
+   * Con el teclado no hay arrastre, así que las flechas mueven los dos números
+   * por separado: arriba y abajo el ángulo, izquierda y derecha la fuerza. Sin
+   * esto el juego sería sólo para quien puede arrastrar, y el botón «Tirar»
+   * repetiría siempre el mismo tiro.
    */
-  useEffect(() => {
-    if (!inView || prefersReduced) return;
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const { aim } = state;
+      const moved: Record<string, Aim> = {
+        ArrowUp: { ...aim, angle: aim.angle + ANGLE_STEP },
+        ArrowDown: { ...aim, angle: aim.angle - ANGLE_STEP },
+        ArrowRight: { ...aim, power: aim.power + POWER_STEP },
+        ArrowLeft: { ...aim, power: aim.power - POWER_STEP },
+      };
 
-    let frame = 0;
-    let previous = performance.now();
-    let running = true;
-
-    const loop = (now: number) => {
-      if (!running) return;
-      const deltaSeconds = Math.min((now - previous) / 1000, 0.1);
-      previous = now;
-      dispatch({ type: 'TICK', deltaSeconds });
-      frame = requestAnimationFrame(loop);
-    };
-
-    const onVisibility = () => {
-      if (document.hidden) {
-        running = false;
-        cancelAnimationFrame(frame);
-      } else if (!running) {
-        running = true;
-        previous = performance.now();
-        frame = requestAnimationFrame(loop);
+      const next = moved[event.key];
+      if (next) {
+        // Con la cancha enfocada las flechas apuntan; dejarlas pasar además
+        // scrollearía la página debajo del juego en cada corrección.
+        event.preventDefault();
+        dispatch({ type: 'AIM', aim: clampAim(next) });
+        return;
       }
-    };
 
-    frame = requestAnimationFrame(loop);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      running = false;
-      cancelAnimationFrame(frame);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [inView, prefersReduced]);
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        dispatch({ type: 'SHOOT' });
+      }
+    },
+    [state],
+  );
 
-  /*
-   * Con `prefers-reduced-motion` la mira salta en pasos discretos con un
-   * intervalo en vez de deslizarse: el juego se sigue pudiendo jugar, pero sin
-   * movimiento continuo en pantalla.
-   */
-  useEffect(() => {
-    if (!inView || !prefersReduced) return;
-
-    const timer = window.setInterval(
-      () => dispatch({ type: 'TICK', deltaSeconds: REDUCED_MOTION_STEP_MS / 1000 }),
-      REDUCED_MOTION_STEP_MS,
-    );
-    return () => window.clearInterval(timer);
-  }, [inView, prefersReduced]);
-
-  // El botón ya responde a Espacio y Enter de forma nativa, así que no hace
-  // falta ningún atajo extra: capturar Espacio a nivel de página además le
-  // sacaría al teclado el scroll, que es su comportamiento esperado.
-  const shoot = useCallback(() => dispatch({ type: 'SHOOT' }), []);
-
-  const scored = state.lastResult === 'in' || state.lastResult === 'perfect';
   const bestStreak = Math.max(state.best, storedBest);
   const tier = streakTier(state.streak);
   const faltan = shotsToNextTier(state.streak);
-
-  // La trayectoria y el confeti se derivan del resultado y del número de tiro,
-  // así que son los mismos en cada render mientras no se tire de nuevo.
-  const arc = state.lastResult ? shotArc(state.lastResult, state.shotId) : null;
-  const confetti = state.lastResult ? confettiCount(state.lastResult) : 0;
+  const scored = state.lastResult === 'in' || state.lastResult === 'perfect';
 
   return (
     <div className="bg-ink-raised border-line-card flex flex-col gap-12 rounded-2xl border p-8 lg:flex-row lg:items-center lg:p-[45px_49px]">
-      <div ref={ref} className="flex min-w-0 flex-1 flex-col items-start gap-[9px]">
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-[9px]">
         <p className="text-orange text-[13px] font-bold tracking-[0.14em] uppercase">Minijuego</p>
         <h3 className="text-[40px] leading-none font-bold">Tirá al aro</h3>
         <p className="text-muted max-w-[460px] text-[17px] leading-[1.6]">
-          La mira se mueve sola. Tocá <strong className="text-soft font-bold">Tirar</strong> cuando
-          pase por la zona naranja y metela desde afuera del arco.
+          Arrastrá en la cancha hacia donde querés que vaya la pelota:{' '}
+          <strong className="text-soft font-bold">para dónde</strong> es el ángulo y{' '}
+          <strong className="text-soft font-bold">cuánto</strong> es la fuerza. Entra limpia y son
+          tres.
         </p>
 
         <div className="mt-3 w-full">
-          <AimBar aim={state.aim} streak={state.streak} />
+          <AimMeter aim={state.aim} wind={state.wind} />
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-[22px]">
-          <Button onClick={shoot} className="px-[34px] py-[15px] uppercase">
+          <Button
+            onClick={() => onShoot()}
+            disabled={state.shooting}
+            className="px-[34px] py-[15px] uppercase"
+          >
             Tirar
           </Button>
           <p
@@ -136,7 +127,7 @@ export function ShootoutGame() {
               scored ? 'text-orange' : 'text-dim',
             )}
           >
-            {feedbackFor(state.lastResult)}
+            {feedbackFor(state.lastResult, state.shooting)}
           </p>
         </div>
 
@@ -180,81 +171,30 @@ export function ShootoutGame() {
         </div>
       </div>
 
-      {/* Cancha del juego: el aro arriba a la derecha y la pelota abajo a la izquierda. */}
-      <div className="relative h-[300px] w-full max-w-[460px] shrink-0 self-center">
-        <div className="absolute top-0 right-10 w-[220px]">
-          <Hoop
-            swish={scored}
-            shotId={state.shotId}
-            reducedMotion={prefersReduced}
-            delaySeconds={arc ? arc.durationSeconds * arc.swishAt : 0}
-          />
-        </div>
-
-        <div className="absolute bottom-[10px] left-10">
-          {prefersReduced ? (
-            <GameBall />
-          ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={state.shotId}
-                initial={{ x: 0, y: 0, scale: 1, rotate: 0 }}
-                animate={
-                  arc
-                    ? {
-                        x: [...arc.x],
-                        y: [...arc.y],
-                        scale: [...arc.scale],
-                        rotate: [...arc.rotate],
-                      }
-                    : // El rebote de espera sólo corre con la sección a la
-                      // vista: una animación infinita fuera de pantalla gasta
-                      // frames y deja la página sin un solo cuadro estable.
-                      inView
-                      ? { y: [0, -12, 0] }
-                      : { y: 0 }
-                }
-                transition={
-                  arc
-                    ? {
-                        duration: arc.durationSeconds,
-                        times: [...arc.times],
-                        ease: [0.25, 0.1, 0.4, 1],
-                      }
-                    : { duration: 2.2, repeat: inView ? Infinity : 0, ease: 'easeInOut' }
-                }
-              >
-                <GameBall />
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </div>
-
-        {/* Confeti sincronizado con el momento en que la pelota cruza el aro. */}
-        {!prefersReduced && arc && confetti > 0 ? (
-          <Confetti
-            key={state.shotId}
-            shotId={state.shotId}
-            count={confetti}
-            delaySeconds={arc.durationSeconds * arc.swishAt}
-          />
-        ) : null}
-
-        <AnimatePresence>
-          {scored ? (
-            <motion.span
-              key={state.shotId}
-              initial={{ opacity: 0, y: 0, scale: 0.8 }}
-              animate={{ opacity: 1, y: -32, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, delay: arc ? arc.durationSeconds * arc.swishAt : 0 }}
-              aria-hidden="true"
-              className="font-display text-orange absolute top-[110px] right-[70px] text-3xl font-bold"
-            >
-              +{shotPoints(state.lastResult!)}
-            </motion.span>
-          ) : null}
-        </AnimatePresence>
+      {/*
+        La cancha es una zona de juego y no un control suelto, así que se la
+        anuncia entera: qué es, cómo está apuntada ahora y con qué teclas se la
+        mueve. Sin eso, quien juega con el teclado estaría moviendo a ciegas dos
+        números que no se leen en ningún lado.
+      */}
+      <div
+        role="application"
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        aria-label={`Cancha. ${describeAim(state.aim)}. ${describeWind(state.wind)}. Flechas arriba y abajo para el ángulo, izquierda y derecha para la fuerza, Enter para tirar.`}
+        className="focus-visible:outline-orange w-full max-w-[460px] shrink-0 self-center rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        <Court
+          aim={state.aim}
+          wind={state.wind}
+          shotId={state.shotId}
+          shooting={state.shooting}
+          lastResult={state.lastResult}
+          reducedMotion={prefersReduced}
+          onAim={onAim}
+          onShoot={onShoot}
+          onResolve={onResolve}
+        />
       </div>
     </div>
   );

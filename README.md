@@ -58,7 +58,7 @@ tests/e2e/       specs de Playwright
 Los tests unitarios cubren la lógica pura (minijuego, ordenamiento de la tabla, validación del
 formulario), los hooks y el comportamiento de cada componente. Los end-to-end recorren la página ya
 construida en Chromium: navegación, acordeón, tabla ordenable, carga diferida del mapa, una partida
-del minijuego con el reloj controlado y el flujo completo del formulario de inscripción.
+del minijuego arrastrando con el mouse y el flujo completo del formulario de inscripción.
 
 `responsive.spec.ts` la recorre además en ocho tamaños —del teléfono plegado de 320 px a la pantalla
 de 1920, pasando por el teléfono **apaisado**, que es corto y es el caso que siempre se olvida— y
@@ -171,15 +171,44 @@ cambió de lugar.
 - **Los botones se corren unos píxeles hacia el cursor**, con tope para no escaparse de abajo del
   mouse.
 - **Los títulos de sección entran girando desde el fondo**, con la etiqueta adelantándose al título.
-- **El minijuego «Tirá al aro»** tiene seis trayectorias, confeti al encestar y un fuego de racha que
-  sube de nivel cada tres encestadas.
+- **El minijuego «Tirá al aro» se juega arrastrando**, con el dedo o con el mouse, hacia donde se
+  quiere que vaya la pelota. El arrastre trae los dos números que definen un tiro —para dónde apunta
+  es el ángulo, cuánto se arrastró es la fuerza—, así que no hay dos controles sino un gesto, y no
+  hay dos tiros iguales. Se ve venir con una guía punteada que muestra el arranque del arco y corta
+  antes del aro: es una ayuda para apuntar, no la respuesta.
+
+  Lo que pasa después **no está escrito en ningún lado**. La pelota la mueve un simulador
+  (`lib/minigame/physics.ts`) que integra gravedad y viento en pasos fijos y resuelve los choques
+  contra el frente del aro, el fondo y la tabla. La diferencia con una animación es la única que
+  importa acá: una animación tiene que decidir antes de empezar si el tiro entra; una simulación se
+  entera al final, así que un tiro puede pegar en el aro, dar vueltas y caer adentro. Entra limpia
+  vale 3 y entra rebotando vale 2.
+
+  El aro se ve **de costado** por eso mismo. De frente el tablero queda detrás del aro, en una
+  profundidad que dos dimensiones no tienen, y hay que elegir entre ponerlo en el camino de la
+  pelota —donde tapa todos los tiros buenos— o que la pelota lo atraviese dibujado. De costado los
+  tres cuerpos están en el mismo plano y cada rebote es el que se ve; de paso, se ve el arco, que de
+  frente es lo único que no se distingue entre un tiro corto y uno largo.
+
+  El **viento** aparece a la tercera encestada seguida y crece con la racha. Sin él el juego se
+  termina cuando alguien encuentra el arrastre que entra, porque repetirlo sale gratis. Sale del
+  número de tiro y no de `Math.random`, así que dos partidas con los mismos tiros se ven igual.
+  Arriba de todo eso quedan el confeti al encestar y el fuego de racha, que sube de nivel cada tres.
+
+  Es también la única sección **sin** cámara de profundidad: la cámara inclina la sección en 3D con
+  el scroll, y un arrastre sobre algo inclinado entra deformado —la perspectiva comprime el eje
+  vertical y no el horizontal—, así que el mismo gesto salía como un tiro de sesenta grados con la
+  sección derecha y de cuarenta con la sección inclinada. La cuenta se puede corregir; que la cancha
+  se mueva debajo del dedo mientras se apunta, no.
 
 Todo el movimiento son transformaciones y opacidad, y los efectos de puntero miden el elemento una
 sola vez al entrar.
 
 Con `prefers-reduced-motion` no se monta ninguna animación: ni los manejadores de puntero, ni el
 confeti, ni las chispas del fuego, ni la solapa de las transiciones —los saltos del nav vuelven a ser
-un ancla común—, y las placas del fondo se quedan quietas.
+un ancla común—, y las placas del fondo se quedan quietas. El minijuego se sigue jugando: el tiro se
+simula entero de una y el resultado se cuenta en el marcador, con la pelota quieta en su lugar. Es la
+misma simulación, así que el mismo tiro da lo mismo animado que no.
 
 ## Integración continua
 

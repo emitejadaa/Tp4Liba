@@ -34,59 +34,29 @@ test.describe('Animaciones e interacción', () => {
       .toBeGreaterThan(20);
   });
 
-  test('una encestada larga confeti y sacude la red', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('#minijuego').scrollIntoViewIfNeeded();
-
-    // Tiramos justo cuando la mira pasa por el centro de la zona.
-    await page.evaluate(async () => {
-      const seccion = document.querySelector('#minijuego')!;
-      const barra = seccion.querySelector('[role="progressbar"]')!;
-      const tirar = [...seccion.querySelectorAll('button')].find(
-        (boton) => boton.textContent?.trim() === 'Tirar',
-      )!;
-
-      const empezo = performance.now();
-      while (performance.now() - empezo < 10_000) {
-        if (Math.abs(Number(barra.getAttribute('aria-valuenow')) - 50) <= 1) {
-          tirar.click();
-          return;
-        }
-        await new Promise((listo) => requestAnimationFrame(() => listo()));
-      }
-    });
-
-    await expect(page.locator('#minijuego [role="status"]')).toHaveText(/¡(Adentro|Triple)!/);
-    // El confeti sale cuando la pelota cruza el aro, no al tocar el botón.
-    await page.waitForTimeout(900);
-    const confeti = page.locator('#minijuego span.rounded-\\[1px\\]');
-    expect(await confeti.count()).toBeGreaterThan(0);
-  });
-
   test('el fuego de racha aparece recién a las tres encestadas', async ({ page }) => {
+    /*
+     * El tiro con el que arranca el juego entra, así que tres veces «Tirar»
+     * alcanzan para prender el fuego. El botón se apaga mientras la pelota está
+     * en el aire, y esperar a que vuelva es exactamente esperar a que el tiro se
+     * resuelva: no hace falta ningún tiempo fijo, que en una máquina lenta sería
+     * un test que falla solo.
+     */
     await page.goto('/');
     await page.locator('#minijuego').scrollIntoViewIfNeeded();
 
     const fuego = page.locator('#minijuego svg[viewBox="0 0 40 64"]');
     await expect(fuego).toHaveCount(0);
 
-    const racha = await page.evaluate(async () => {
-      const seccion = document.querySelector('#minijuego')!;
-      const barra = seccion.querySelector('[role="progressbar"]')!;
-      const tirar = [...seccion.querySelectorAll('button')].find(
-        (boton) => boton.textContent?.trim() === 'Tirar',
-      )!;
-      const leerRacha = () => Number((seccion.textContent?.match(/RACHA\s*(\d+)/i) ?? [])[1] ?? 0);
+    const tirar = page.getByRole('button', { name: 'Tirar' });
+    const racha = page.locator('#minijuego dl div').filter({ hasText: 'Racha' }).locator('dd');
 
-      const empezo = performance.now();
-      while (leerRacha() < 3 && performance.now() - empezo < 25_000) {
-        if (Math.abs(Number(barra.getAttribute('aria-valuenow')) - 50) <= 2) tirar.click();
-        await new Promise((listo) => requestAnimationFrame(() => listo()));
-      }
-      return leerRacha();
-    });
+    for (let tiro = 1; tiro <= 3; tiro += 1) {
+      await tirar.click();
+      await expect(tirar).toBeEnabled();
+      await expect(racha).toHaveText(String(tiro));
+    }
 
-    expect(racha).toBeGreaterThanOrEqual(3);
     await expect(fuego).toHaveCount(1);
     await expect(page.getByText('Racha encendida')).toBeVisible();
   });
