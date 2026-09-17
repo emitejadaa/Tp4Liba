@@ -4,7 +4,9 @@ import { INITIAL_AIM, launchVelocity } from './aim';
 import {
   MAX_FLIGHT_SECONDS,
   STEP_SECONDS,
+  STILL_HOOP,
   advanceShot,
+  hoopOffsetAt,
   launchShot,
   previewPath,
   simulateShot,
@@ -237,6 +239,86 @@ describe('previewPath', () => {
     const path = previewPath(launchVelocity({ angle: 45, power: 1 }), NO_WIND, 1.2, 40);
     for (let index = 1; index < path.length; index += 1) {
       expect(path[index]!.x).toBeGreaterThan(path[index - 1]!.x);
+    }
+  });
+});
+
+describe('hoopOffsetAt', () => {
+  it('con el aro quieto no se mueve nunca', () => {
+    // Es el caso de casi todo el juego y tiene que costar cero.
+    for (const t of [0, 0.3, 1, 7.5]) expect(hoopOffsetAt(t, STILL_HOOP)).toBe(0);
+  });
+
+  it('va y vuelve sin pasarse de la amplitud', () => {
+    const motion = { amplitude: 30, period: 2, phase: 0 };
+    for (let t = 0; t < 6; t += 0.05) {
+      expect(Math.abs(hoopOffsetAt(t, motion))).toBeLessThanOrEqual(30 + 1e-9);
+    }
+  });
+
+  it('cierra el ciclo: al período vuelve a donde estaba', () => {
+    const motion = { amplitude: 30, period: 2.5, phase: 0.4 };
+    expect(hoopOffsetAt(3.1, motion)).toBeCloseTo(hoopOffsetAt(3.1 + 2.5, motion), 6);
+  });
+
+  it('el desfasaje corre el vaivén sin cambiarle la forma', () => {
+    const quieto = { amplitude: 20, period: 3, phase: 0 };
+    const corrido = { amplitude: 20, period: 3, phase: 0.75 };
+    expect(hoopOffsetAt(0.75, quieto)).toBeCloseTo(hoopOffsetAt(0, corrido), 6);
+  });
+});
+
+describe('simulateShot · el aro móvil', () => {
+  const moving = (phase: number) => ({ wind: 0, hoop: { amplitude: 38, period: 2.4, phase } });
+
+  it('el mismo tiro da distinto según en qué punto del vaivén salga', () => {
+    /*
+     * Es todo el sentido del aro móvil: deja de alcanzar con apuntar bien, hay
+     * que elegir **cuándo** soltar. Si el resultado fuera el mismo en todas las
+     * fases, el aro se movería de adorno.
+     */
+    const velocity = launchVelocity(INITIAL_AIM);
+    const results = [0, 0.6, 1.2, 1.8].map((phase) => simulateShot(velocity, moving(phase)).result);
+    expect(new Set(results).size).toBeGreaterThan(1);
+  });
+
+  it('sigue siendo posible encestar en cualquier punto del vaivén', () => {
+    /*
+     * Un aro que en parte de su recorrido no se puede embocar no es difícil, es
+     * injusto: castiga por haber soltado en el momento equivocado sin que
+     * hubiera ninguno bueno.
+     */
+    for (const phase of [0, 0.6, 1.2, 1.8]) {
+      let entraron = 0;
+      for (let angle = 40; angle <= 84; angle += 2) {
+        for (let p = 40; p <= 100; p += 4) {
+          const shot = simulateShot(launchVelocity({ angle, power: p / 100 }), moving(phase));
+          if (shot.result !== 'miss') entraron += 1;
+        }
+      }
+      expect(entraron).toBeGreaterThan(10);
+    }
+  });
+
+  it('con el mismo desfasaje da siempre lo mismo', () => {
+    // El desfasaje se congela al soltar justamente para esto: el tiro queda
+    // cerrado y se puede reproducir, aunque el aro se esté moviendo.
+    const velocity = launchVelocity(INITIAL_AIM);
+    const a = simulateShot(velocity, moving(0.8));
+    const b = simulateShot(velocity, moving(0.8));
+    expect(a.result).toBe(b.result);
+    expect(a.body.x).toBeCloseTo(b.body.x, 10);
+  });
+
+  it('sigue terminando siempre', () => {
+    for (const phase of [0, 0.5, 1, 1.5, 2]) {
+      for (let angle = 0; angle <= 90; angle += 10) {
+        for (let power = 0; power <= 1; power += 0.25) {
+          const shot = simulateShot(launchVelocity({ angle, power }), moving(phase));
+          expect(shot.settled).toBe(true);
+          expect(shot.result).not.toBeNull();
+        }
+      }
     }
   });
 });

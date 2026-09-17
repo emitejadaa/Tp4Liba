@@ -10,10 +10,12 @@ import { LAUNCH, RIM, RIM_CENTER, VIEW_BOX } from '@/lib/minigame/court';
 import {
   STEP_SECONDS,
   advanceShot,
+  hoopOffsetAt,
   launchShot,
   previewPath,
   simulateShot,
   type Body,
+  type HoopMotion,
   type Shot,
   type ShotResult,
 } from '@/lib/minigame/physics';
@@ -60,6 +62,10 @@ const ARM_DISTANCE = 6;
 type CourtProps = {
   aim: Aim;
   wind: number;
+  /** Cuánto y qué tan rápido sube y baja el aro. Amplitud 0 = quieto. */
+  hoopMotion: { amplitude: number; period: number };
+  /** La sección está a la vista: si no, no vale la pena mover nada. */
+  active: boolean;
   shotId: number;
   shooting: boolean;
   lastResult: ShotResult | null;
@@ -72,6 +78,8 @@ type CourtProps = {
 export function Court({
   aim,
   wind,
+  hoopMotion,
+  active,
   shotId,
   shooting,
   lastResult,
@@ -82,6 +90,7 @@ export function Court({
 }: CourtProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const ballRef = useRef<SVGGElement>(null);
+  const hoopRef = useRef<SVGGElement>(null);
   /*
    * El gesto en curso. `from` es sólo para saber si ya se movió lo suficiente
    * como para armarlo; la puntería no sale de ahí, sale de dónde está el dedo
@@ -97,9 +106,9 @@ export function Court({
    * una ref mientras se renderiza rompe con el render concurrente, y la regla
    * `react-hooks/refs` lo marca.
    */
-  const live = useRef({ aim, wind, onResolve });
+  const live = useRef({ aim, wind, hoopMotion, onResolve });
   useIsomorphicLayoutEffect(() => {
-    live.current = { aim, wind, onResolve };
+    live.current = { aim, wind, hoopMotion, onResolve };
   });
 
   /** Escribe una posición del simulador en el nodo de la pelota. */
@@ -108,6 +117,36 @@ export function Court({
     if (!node) return;
     node.style.transform = `translate(${body.x}px, ${body.y}px) rotate(${body.spin}deg)`;
   }, []);
+
+  /** Y el desplazamiento del aro en el grupo que se mueve con él. */
+  const placeHoop = useCallback((offset: number) => {
+    const node = hoopRef.current;
+    if (node) node.style.transform = `translateY(${offset}px)`;
+  }, []);
+
+  /*
+   * El vaivén del aro mientras se apunta.
+   *
+   * Corre contra el reloj de pared, y ése es el mismo reloj del que sale el
+   * desfasaje que se le pasa al tiro: por eso el aro no pega un salto al soltar.
+   * Sólo se monta cuando el aro de verdad se mueve —o sea a partir de cierta
+   * racha— así que la parte del juego con el aro quieto no paga un solo cuadro.
+   */
+  useIsomorphicLayoutEffect(() => {
+    if (hoopMotion.amplitude === 0 || reducedMotion || !active || shooting) {
+      if (hoopMotion.amplitude === 0) placeHoop(0);
+      return;
+    }
+
+    let frame = 0;
+    const loop = () => {
+      placeHoop(hoopOffsetAt(performance.now() / 1000, { ...hoopMotion, phase: 0 }));
+      frame = requestAnimationFrame(loop);
+    };
+
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [hoopMotion, reducedMotion, active, shooting, placeHoop]);
 
   /*
    * El vuelo.
@@ -126,7 +165,18 @@ export function Court({
     if (shotId === 0) return;
 
     const velocity = launchVelocity(live.current.aim);
-    const env = { wind: live.current.wind };
+    /*
+     * El desfasaje se congela acá, con el reloj de pared, y de ahí en más el
+     * vuelo lo lleva con el suyo. Eso hace dos cosas: el aro sigue de largo sin
+     * saltar —al tiempo cero la cuenta da exactamente lo que se estaba
+     * dibujando— y el tiro queda cerrado, o sea que el mismo tiro da siempre lo
+     * mismo. Con el reloj de pared metido adentro de la simulación, el mismo
+     * tiro entraría o no según cuándo se lo mirara.
+     */
+    const hoop: HoopMotion = reducedMotion
+      ? { amplitude: 0, period: 1, phase: 0 }
+      : { ...live.current.hoopMotion, phase: performance.now() / 1000 };
+    const env = { wind: live.current.wind, hoop };
 
     if (reducedMotion) {
       /*
@@ -159,6 +209,9 @@ export function Court({
       shot = advanceShot(shot, env, pending);
       pending -= steps * STEP_SECONDS;
       place(shot.body);
+      // El aro se dibuja con la misma cuenta con la que choca: si se dibujara
+      // con otro reloj, la pelota rebotaría contra un aro que no está ahí.
+      placeHoop(hoopOffsetAt(shot.elapsed, hoop));
 
       // El resultado se avisa apenas se sabe —al cruzar el aro, no al final—
       // para que el confeti y la red salgan cuando la pelota pasa y no después.
@@ -192,7 +245,7 @@ export function Court({
         place({ x: LAUNCH.x, y: LAUNCH.y, spin: 0 });
       }
     };
-  }, [shotId, reducedMotion, place]);
+  }, [shotId, reducedMotion, place, placeHoop]);
 
   /** Deja la pelota en su lugar en el primer dibujo. */
   useIsomorphicLayoutEffect(() => {
@@ -309,7 +362,7 @@ export function Court({
       className="h-auto w-full max-w-[460px] touch-none select-none"
       style={{ cursor: shooting ? 'default' : 'grab' }}
     >
-      <Hoop swish={scored} shotId={shotId} reducedMotion={reducedMotion} />
+      <Hoop swish={scored} shotId={shotId} reducedMotion={reducedMotion} moveRef={hoopRef} />
 
       {/*
         La guía de puntería: los primeros cuadros del vuelo, sin choques. Se ve

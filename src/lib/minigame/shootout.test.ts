@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { GameState } from './shootout';
 import {
+  HOOP_MOVES_FROM_STREAK,
   INITIAL_STATE,
+  MAX_HOOP_AMPLITUDE,
   MAX_WIND,
+  MIN_HOOP_PERIOD,
   WIND_FROM_STREAK,
   confettiCount,
+  describeHoop,
   describeWind,
   feedbackFor,
+  hoopMotionFor,
   shootoutReducer,
   shotPoints,
   windFor,
@@ -187,5 +192,44 @@ describe('describeWind', () => {
     expect(describeWind(0)).toBe('Sin viento');
     expect(describeWind(MAX_WIND)).toBe('Viento a favor, 100%');
     expect(describeWind(-MAX_WIND)).toBe('Viento en contra, 100%');
+  });
+});
+
+describe('hoopMotionFor', () => {
+  it('al principio el aro está clavado', () => {
+    // El viento ya aparece antes: encimar los dos desde el arranque no deja
+    // aprender ninguno de los dos.
+    for (let streak = 0; streak < HOOP_MOVES_FROM_STREAK; streak += 1) {
+      expect(hoopMotionFor(streak).amplitude).toBe(0);
+    }
+  });
+
+  it('empieza a moverse al llegar al nivel', () => {
+    expect(hoopMotionFor(HOOP_MOVES_FROM_STREAK).amplitude).toBeGreaterThan(0);
+  });
+
+  it('cuanto más alta la racha, más recorrido y más rápido', () => {
+    const empieza = hoopMotionFor(HOOP_MOVES_FROM_STREAK);
+    const avanzada = hoopMotionFor(HOOP_MOVES_FROM_STREAK + 8);
+
+    expect(avanzada.amplitude).toBeGreaterThan(empieza.amplitude);
+    // Menos período es más rápido.
+    expect(avanzada.period).toBeLessThan(empieza.period);
+  });
+
+  it('las dos cosas tienen tope, para que siga siendo posible', () => {
+    for (let streak = 0; streak < 300; streak += 1) {
+      const { amplitude, period } = hoopMotionFor(streak);
+      expect(amplitude).toBeLessThanOrEqual(MAX_HOOP_AMPLITUDE);
+      expect(period).toBeGreaterThanOrEqual(MIN_HOOP_PERIOD);
+    }
+  });
+});
+
+describe('describeHoop', () => {
+  it('dice si el aro se mueve y a qué ritmo', () => {
+    expect(describeHoop({ amplitude: 0, period: 4 })).toBe('Aro fijo');
+    expect(describeHoop({ amplitude: 20, period: 4 })).toBe('Aro móvil, sube y baja despacio');
+    expect(describeHoop({ amplitude: 30, period: 2 })).toBe('Aro móvil, sube y baja rápido');
   });
 });

@@ -1,18 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, type KeyboardEvent } from 'react';
 import { AimMeter } from './AimMeter';
 import { Court } from './Court';
 import { ScoreStats } from './ScoreStats';
 import { StreakFire } from './StreakFire';
 import { Button } from '@/components/ui/Button';
+import { useInView } from '@/hooks/useInView';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { clampAim, describeAim, type Aim } from '@/lib/minigame/aim';
 import {
   INITIAL_STATE,
+  describeHoop,
   describeWind,
   feedbackFor,
+  hoopMotionFor,
   shootoutReducer,
   type ShotResult,
 } from '@/lib/minigame/shootout';
@@ -46,6 +49,24 @@ export function ShootoutGame() {
   const [state, dispatch] = useReducer(shootoutReducer, INITIAL_STATE);
   const prefersReduced = useReducedMotion();
   const [storedBest, setStoredBest] = useLocalStorage(BEST_STREAK_KEY, 0);
+  // La cancha sólo mueve el aro con la sección a la vista: un bucle de
+  // animación corriendo para nadie es batería tirada.
+  const { ref: viewRef, inView } = useInView<HTMLDivElement>({ threshold: 0.2, once: false });
+
+  /*
+   * El aro empieza a subir y bajar a partir de cierta racha, y se mueve más y
+   * más rápido a medida que sube. Sale de la racha y nada más, así que no hace
+   * falta guardarlo en el estado.
+   *
+   * Con movimiento reducido el aro se queda quieto. No es sólo que sea una
+   * animación: es que apuntarle a un aro que se mueve **es** reaccionar al
+   * movimiento, así que dejarlo andando ahí sería pedirle justo lo que pidió no
+   * tener que hacer. Prefiere un juego más fácil a un juego que no puede jugar.
+   */
+  const hoopMotion = useMemo(
+    () => (prefersReduced ? { amplitude: 0, period: 1 } : hoopMotionFor(state.streak)),
+    [prefersReduced, state.streak],
+  );
 
   // El récord guardado se actualiza sólo cuando la partida lo supera.
   useEffect(() => {
@@ -157,6 +178,9 @@ export function ShootoutGame() {
               Mejor racha: <span className="text-soft font-semibold">{bestStreak}</span>
             </p>
           ) : null}
+          {hoopMotion.amplitude > 0 ? (
+            <p className="font-semibold text-sky-300">Aro móvil</p>
+          ) : null}
           {tier.level > 0 ? (
             <p className="text-orange font-semibold">
               Racha {tier.label}
@@ -180,12 +204,15 @@ export function ShootoutGame() {
         role="application"
         tabIndex={0}
         onKeyDown={onKeyDown}
-        aria-label={`Cancha. ${describeAim(state.aim)}. ${describeWind(state.wind)}. Flechas arriba y abajo para el ángulo, izquierda y derecha para la fuerza, Enter para tirar.`}
+        ref={viewRef}
+        aria-label={`Cancha. ${describeAim(state.aim)}. ${describeWind(state.wind)}. ${describeHoop(hoopMotion)}. Flechas arriba y abajo para el ángulo, izquierda y derecha para la fuerza, Enter para tirar.`}
         className="focus-visible:outline-orange w-full max-w-[460px] shrink-0 self-center rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4"
       >
         <Court
           aim={state.aim}
           wind={state.wind}
+          hoopMotion={hoopMotion}
+          active={inView}
           shotId={state.shotId}
           shooting={state.shooting}
           lastResult={state.lastResult}

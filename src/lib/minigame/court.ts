@@ -94,14 +94,29 @@ export const RIM_CENTER = { x: (RIM.front + RIM.back) / 2, y: RIM.y } as const;
  */
 export const BOARD = { left: 358, right: 368, top: 8, bottom: 104 } as const;
 
-/** El poste, detrás del tablero. Frena lo que se va largo por la derecha. */
-export const POST = { left: 380, right: 388, top: 30, bottom: FLOOR_Y } as const;
+/**
+ * El poste, detrás del tablero. Frena lo que se va largo por la derecha.
+ *
+ * Arranca bien arriba del tablero porque el tablero se desliza sobre él: con el
+ * aro en lo más alto de su recorrido, el brazo que lo sostiene queda por encima
+ * de donde estaría un poste corto y se vería flotando en el aire.
+ */
+export const POST = { left: 380, right: 388, top: -24, bottom: FLOOR_Y } as const;
 
 /** Rectángulo con las cuatro caras que chocan. */
 export type Box = { left: number; right: number; top: number; bottom: number };
 
-/** Los cuerpos macizos de la cancha. */
-export const OBSTACLES: readonly Box[] = [BOARD, POST];
+/**
+ * Los cuerpos macizos que **se mueven con el aro**.
+ *
+ * El tablero va colgado del aro, así que cuando el aro sube y baja, sube y baja
+ * con él. El poste no: está clavado en el piso y el tablero se desliza sobre él,
+ * como en un aro regulable de verdad.
+ */
+export const MOVING_OBSTACLES: readonly Box[] = [BOARD];
+
+/** Y los que se quedan quietos pase lo que pase. */
+export const FIXED_OBSTACLES: readonly Box[] = [POST];
 
 /** Los dos nodos del aro, como círculos. */
 export const RIM_NODES: readonly { x: number; y: number; radius: number }[] = [

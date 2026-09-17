@@ -1,5 +1,6 @@
 'use client';
 
+import type { Ref } from 'react';
 import { motion } from 'motion/react';
 import { BALL_RADIUS, BOARD, FLOOR_Y, POST, RIM, RIM_CENTER } from '@/lib/minigame/court';
 
@@ -30,72 +31,87 @@ type HoopProps = {
   /** Cambia en cada tiro, para reiniciar la animación de la red. */
   shotId: number;
   reducedMotion: boolean;
+  /**
+   * El grupo que sube y baja cuando el aro está móvil.
+   *
+   * Lo mueve el bucle de la cancha escribiéndole la transformación, no React:
+   * es una posición que cambia sesenta veces por segundo y no tiene por qué
+   * pasar por un re-render.
+   */
+  moveRef?: Ref<SVGGElement>;
 };
 
-export function Hoop({ swish, shotId, reducedMotion }: HoopProps) {
+export function Hoop({ swish, shotId, reducedMotion, moveRef }: HoopProps) {
   return (
     <g aria-hidden="true">
-      {/* El poste y el brazo que sostienen el tablero. */}
+      {/*
+        El poste va afuera del grupo que se mueve: está clavado en el piso y el
+        tablero se desliza sobre él, como en un aro regulable de verdad.
+      */}
       <path
         d={`M${(POST.left + POST.right) / 2} ${POST.top}V${POST.bottom}`}
         stroke="#334155"
         strokeWidth={POST.right - POST.left}
       />
-      <path
-        d={`M${BOARD.right} 46H${(POST.left + POST.right) / 2}`}
-        stroke="#334155"
-        strokeWidth={5}
-      />
 
-      {/* El tablero, de canto. */}
-      <rect
-        x={BOARD.left}
-        y={BOARD.top}
-        width={BOARD.right - BOARD.left}
-        height={BOARD.bottom - BOARD.top}
-        fill="#0A1524"
-        stroke="#CBD5E1"
-        strokeWidth={3}
-      />
+      <g ref={moveRef} data-testid="aro" style={{ willChange: 'transform' }}>
+        {/* El brazo que cuelga el tablero del poste. */}
+        <path
+          d={`M${BOARD.right} 46H${(POST.left + POST.right) / 2}`}
+          stroke="#334155"
+          strokeWidth={5}
+        />
 
-      {/* El recuadro de tiro, que de canto es la franja naranja de la cara. */}
-      <path d={`M${BOARD.left} 40V78`} stroke="#F97316" strokeWidth={3} />
+        {/* El tablero, de canto. */}
+        <rect
+          x={BOARD.left}
+          y={BOARD.top}
+          width={BOARD.right - BOARD.left}
+          height={BOARD.bottom - BOARD.top}
+          fill="#0A1524"
+          stroke="#CBD5E1"
+          strokeWidth={3}
+        />
 
-      {/*
+        {/* El recuadro de tiro, que de canto es la franja naranja de la cara. */}
+        <path d={`M${BOARD.left} 40V78`} stroke="#F97316" strokeWidth={3} />
+
+        {/*
         La red va antes que el aro para que el aro le pase por encima: de costado
         la red cuelga por detrás del anillo, y dibujada al revés se ve pegada por
         delante.
       */}
-      <motion.g
-        key={shotId}
-        opacity={0.65}
-        style={{ transformBox: 'view-box', transformOrigin: `${RIM_CENTER.x}px ${RIM.y}px` }}
-        animate={
-          swish && !reducedMotion
-            ? { scaleY: [1, 1.35, 0.9, 1.12, 1], scaleX: [1, 0.88, 1.05, 0.97, 1] }
-            : undefined
-        }
-        transition={{ duration: 0.55, ease: 'easeOut' }}
-      >
-        <path
-          d={`M${RIM.front} ${RIM.y}L${RIM.front + 12} ${RIM.y + 30}H${RIM.back - 12}L${RIM.back} ${RIM.y}
+        <motion.g
+          key={shotId}
+          opacity={0.65}
+          style={{ transformBox: 'view-box', transformOrigin: `${RIM_CENTER.x}px ${RIM.y}px` }}
+          animate={
+            swish && !reducedMotion
+              ? { scaleY: [1, 1.35, 0.9, 1.12, 1], scaleX: [1, 0.88, 1.05, 0.97, 1] }
+              : undefined
+          }
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+        >
+          <path
+            d={`M${RIM.front} ${RIM.y}L${RIM.front + 12} ${RIM.y + 30}H${RIM.back - 12}L${RIM.back} ${RIM.y}
              M${RIM.front + 13} ${RIM.y}L${RIM.front + 18} ${RIM.y + 30}
              M${RIM_CENTER.x} ${RIM.y}V${RIM.y + 30}
              M${RIM.back - 13} ${RIM.y}L${RIM.back - 18} ${RIM.y + 30}
              M${RIM.front + 5} ${RIM.y + 13}H${RIM.back - 5}`}
-          stroke="#CBD5E1"
-          strokeWidth={1.6}
-          fill="none"
-        />
-      </motion.g>
+            stroke="#CBD5E1"
+            strokeWidth={1.6}
+            fill="none"
+          />
+        </motion.g>
 
-      {/* El aro: la barra que va del frente al tablero. */}
-      <path
-        d={`M${RIM.front} ${RIM.y}H${RIM.back}`}
-        stroke="#F97316"
-        strokeWidth={RIM_STROKE}
-        strokeLinecap="round"
-      />
+        {/* El aro: la barra que va del frente al tablero. */}
+        <path
+          d={`M${RIM.front} ${RIM.y}H${RIM.back}`}
+          stroke="#F97316"
+          strokeWidth={RIM_STROKE}
+          strokeLinecap="round"
+        />
+      </g>
 
       {/* El piso, apenas marcado: da de qué agarrarse para leer la altura. */}
       <path d={`M0 ${FLOOR_Y}H460`} stroke="#1E293B" strokeWidth={2} />

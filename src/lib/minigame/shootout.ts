@@ -24,6 +24,29 @@ export const WIND_FROM_STREAK = 2;
 /** Viento máximo, en unidades de cancha por segundo al cuadrado. */
 export const MAX_WIND = 230;
 
+/**
+ * Racha a partir de la cual el aro se pone a subir y bajar.
+ *
+ * Es el segundo nivel de fuego, así que la dificultad sube donde ya subía algo:
+ * el aro empieza a moverse en el mismo tiro en que el fuego cambia de nivel, y
+ * las dos cosas se leen como una sola.
+ *
+ * Llega bastante después del viento a propósito. Son dos problemas distintos: el
+ * viento se corrige antes de tirar, mirando el indicador, y el aro móvil se
+ * corrige **eligiendo cuándo** soltar. Encimados desde el principio no se
+ * aprende ninguno de los dos.
+ */
+export const HOOP_MOVES_FROM_STREAK = 6;
+
+/** Cuánto sube y baja el aro como mucho, desde su altura de siempre. */
+export const MAX_HOOP_AMPLITUDE = 38;
+
+/** Y el ciclo más rápido al que llega, en segundos. */
+export const MIN_HOOP_PERIOD = 1.9;
+
+/** El más lento, que es con el que arranca. */
+export const MAX_HOOP_PERIOD = 4.4;
+
 export type GameState = {
   /** Con qué ángulo y fuerza va a salir el próximo tiro. */
   aim: Aim;
@@ -93,6 +116,37 @@ export function windFor(streak: number, shotId: number): number {
   const share = 0.55 + ((shotId * 7) % 4) * 0.15;
 
   return Math.round(side * strength * share);
+}
+
+/**
+ * El vaivén del aro para una racha.
+ *
+ * Crece en las dos cosas a la vez —más recorrido y más rápido— porque son dos
+ * dificultades distintas: el recorrido agranda el error de apuntar a donde el
+ * aro **va a estar**, y la velocidad achica la ventana para soltar. Una sola de
+ * las dos se aprende en unos tiros; las dos juntas obligan a seguir mirando.
+ *
+ * El desfasaje no sale de acá: lo pone la vista con el reloj en el momento de
+ * soltar, porque de eso se trata. Con el aro moviéndose, cuándo se suelta es
+ * parte del tiro, y si el desfasaje fuera una cuenta fija se podría aprender de
+ * memoria en vez de mirar.
+ */
+export function hoopMotionFor(streak: number): { amplitude: number; period: number } {
+  if (streak < HOOP_MOVES_FROM_STREAK) return { amplitude: 0, period: MAX_HOOP_PERIOD };
+
+  const over = streak - HOOP_MOVES_FROM_STREAK;
+
+  return {
+    amplitude: Math.min(MAX_HOOP_AMPLITUDE, 15 + over * 3),
+    period: Math.max(MIN_HOOP_PERIOD, MAX_HOOP_PERIOD - over * 0.22),
+  };
+}
+
+/** Cómo se lee el aro: si se mueve, cuánto y qué tan rápido. */
+export function describeHoop({ amplitude, period }: { amplitude: number; period: number }): string {
+  if (amplitude === 0) return 'Aro fijo';
+  const speed = period <= 2.4 ? 'rápido' : period <= 3.4 ? 'a ritmo medio' : 'despacio';
+  return `Aro móvil, sube y baja ${speed}`;
 }
 
 export function shootoutReducer(state: GameState, action: Action): GameState {

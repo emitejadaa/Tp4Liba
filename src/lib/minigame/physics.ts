@@ -1,9 +1,10 @@
 import {
   BALL_RADIUS,
   COURT_WIDTH,
+  FIXED_OBSTACLES,
   FLOOR_Y,
   LAUNCH,
-  OBSTACLES,
+  MOVING_OBSTACLES,
   RIM,
   RIM_NODES,
   type Box,
@@ -84,10 +85,45 @@ export type Body = {
   spin: number;
 };
 
+/**
+ * El vaivén del aro.
+ *
+ * Con `amplitude` en cero el aro está clavado y todo lo que sigue vale cero, así
+ * que la parte del juego sin aro móvil no paga nada por esto.
+ */
+export type HoopMotion = {
+  /** Cuánto sube y baja desde su altura de siempre, en unidades. */
+  amplitude: number;
+  /** Segundos que tarda en hacer el ciclo entero. Menos es más rápido. */
+  period: number;
+  /**
+   * Desfasaje en segundos: en qué punto del vaivén estaba el aro al soltar.
+   *
+   * Se congela en el momento del tiro y de ahí en más el vuelo lo lleva con su
+   * propio reloj. Es lo que hace que el aro no pegue un salto al salir la pelota
+   * y, sobre todo, que el tiro sea **una cuenta cerrada**: entra el desfasaje,
+   * sale un resultado, y el mismo tiro da siempre lo mismo. Con el reloj de pared
+   * metido adentro de la simulación, el mismo tiro entraría o no según cuándo se
+   * lo mire, y ni los tests ni el modo sin movimiento podrían reproducirlo.
+   */
+  phase: number;
+};
+
+/** Aro quieto. Es el valor por defecto de casi todo el juego. */
+export const STILL_HOOP: HoopMotion = { amplitude: 0, period: 1, phase: 0 };
+
+/** Dónde está el aro respecto de su altura de siempre, a los `seconds` del tiro. */
+export function hoopOffsetAt(seconds: number, motion: HoopMotion): number {
+  if (motion.amplitude === 0) return 0;
+  return motion.amplitude * Math.sin((2 * Math.PI * (seconds + motion.phase)) / motion.period);
+}
+
 /** Lo que el mundo le hace a la pelota además de la gravedad. */
 export type ShotEnv = {
   /** Aceleración horizontal. Positiva empuja hacia el aro. */
   wind: number;
+  /** El vaivén del aro. Si no viene, el aro está quieto. */
+  hoop?: HoopMotion;
 };
 
 export type Shot = {
@@ -151,9 +187,14 @@ function integrate(body: Body, env: ShotEnv, dt: number): Body {
  * velocidad que va contra la normal, dejando intacta la que va de costado. Es lo
  * que hace que pegarle al aro de refilón la desvíe en vez de frenarla.
  */
-function bounceOffNode(body: Body, node: { x: number; y: number; radius: number }): Body | null {
+function bounceOffNode(
+  body: Body,
+  node: { x: number; y: number; radius: number },
+  offsetY: number,
+): Body | null {
+  const nodeY = node.y + offsetY;
   const dx = body.x - node.x;
-  const dy = body.y - node.y;
+  const dy = body.y - nodeY;
   const distance = Math.hypot(dx, dy);
   const minimum = BALL_RADIUS + node.radius;
 
@@ -167,7 +208,7 @@ function bounceOffNode(body: Body, node: { x: number; y: number; radius: number 
   return {
     ...body,
     x: node.x + nx * minimum,
-    y: node.y + ny * minimum,
+    y: nodeY + ny * minimum,
     vx: normalSpeed < 0 ? body.vx - (1 + RESTITUTION.rim) * normalSpeed * nx : body.vx,
     vy: normalSpeed < 0 ? body.vy - (1 + RESTITUTION.rim) * normalSpeed * ny : body.vy,
   };
@@ -181,9 +222,11 @@ function bounceOffNode(body: Body, node: { x: number; y: number; radius: number 
  * no hay dirección de salida, así que se elige la cara con menos penetración,
  * que es la que se acaba de atravesar.
  */
-function bounceOffBox(body: Body, box: Box): Body | null {
+function bounceOffBox(body: Body, box: Box, offsetY: number): Body | null {
+  const top = box.top + offsetY;
+  const bottom = box.bottom + offsetY;
   const nearestX = clamp(body.x, box.left, box.right);
-  const nearestY = clamp(body.y, box.top, box.bottom);
+  const nearestY = clamp(body.y, top, bottom);
   const dx = body.x - nearestX;
   const dy = body.y - nearestY;
   const inside = dx === 0 && dy === 0;
@@ -196,8 +239,8 @@ function bounceOffBox(body: Body, box: Box): Body | null {
   if (inside) {
     const toLeft = body.x - box.left;
     const toRight = box.right - body.x;
-    const toTop = body.y - box.top;
-    const toBottom = box.bottom - body.y;
+    const toTop = body.y - top;
+    const toBottom = bottom - body.y;
     const least = Math.min(toLeft, toRight, toTop, toBottom);
 
     nx = least === toLeft ? -1 : least === toRight ? 1 : 0;
@@ -250,13 +293,22 @@ function bounceOffBounds(body: Body): Body {
  * la X interpolada en el momento exacto del cruce y no la del final del paso,
  * porque en un paso la pelota se mueve varias unidades y mirar dónde terminó
  * cuenta canastas que pasaron por afuera.
+ *
+ * Con el aro móvil el plano no está quieto, así que se mira la pelota **contra
+ * el aro** y no contra una altura fija: se toma dónde estaba el aro al principio
+ * del paso y dónde está al final. Contra una altura fija, un aro que sube a
+ * buscar la pelota contaría canastas que no pasaron y se comería otras que sí.
  */
-function crossedRim(before: Body, after: Body): boolean {
+function crossedRim(before: Body, after: Body, rimBefore: number, rimAfter: number): boolean {
   if (after.vy <= 0) return false;
-  if (before.y >= RIM.y || after.y < RIM.y) return false;
+  if (before.y >= rimBefore || after.y < rimAfter) return false;
 
-  const travel = after.y - before.y;
-  const share = travel === 0 ? 0 : (RIM.y - before.y) / travel;
+  // La fracción del paso en la que la pelota alcanza al aro, con los dos
+  // moviéndose: se resuelve sobre la diferencia, que es la que cruza el cero.
+  const gapBefore = rimBefore - before.y;
+  const gapAfter = rimAfter - after.y;
+  const change = gapBefore - gapAfter;
+  const share = change === 0 ? 0 : gapBefore / change;
   const crossingX = before.x + (after.x - before.x) * share;
 
   return crossingX > RIM.front && crossingX < RIM.back;
@@ -272,20 +324,34 @@ function crossedRim(before: Body, after: Body): boolean {
  */
 function step(shot: Shot, env: ShotEnv): Shot {
   const before = shot.body;
+  const elapsed = shot.elapsed + STEP_SECONDS;
+  const hoop = env.hoop ?? STILL_HOOP;
+  const offsetBefore = hoopOffsetAt(shot.elapsed, hoop);
+  const offset = hoopOffsetAt(elapsed, hoop);
+
   let body = integrate(before, env, STEP_SECONDS);
   let touchedRim = shot.touchedRim;
   let touchedBoard = shot.touchedBoard;
 
   for (const node of RIM_NODES) {
-    const bounced = bounceOffNode(body, node);
+    const bounced = bounceOffNode(body, node, offset);
     if (bounced) {
       body = bounced;
       touchedRim = true;
     }
   }
 
-  for (const box of OBSTACLES) {
-    const bounced = bounceOffBox(body, box);
+  // El tablero cuelga del aro y se mueve con él; el poste está clavado al piso.
+  for (const box of MOVING_OBSTACLES) {
+    const bounced = bounceOffBox(body, box, offset);
+    if (bounced) {
+      body = bounced;
+      touchedBoard = true;
+    }
+  }
+
+  for (const box of FIXED_OBSTACLES) {
+    const bounced = bounceOffBox(body, box, 0);
     if (bounced) {
       body = bounced;
       touchedBoard = true;
@@ -294,8 +360,8 @@ function step(shot: Shot, env: ShotEnv): Shot {
 
   body = bounceOffBounds(body);
 
-  const elapsed = shot.elapsed + STEP_SECONDS;
-  const justScored = shot.scoredAt === null && crossedRim(before, body);
+  const justScored =
+    shot.scoredAt === null && crossedRim(before, body, RIM.y + offsetBefore, RIM.y + offset);
 
   const resting =
     body.y + BALL_RADIUS >= FLOOR_Y - 0.5 && Math.hypot(body.vx, body.vy) < REST_SPEED;
