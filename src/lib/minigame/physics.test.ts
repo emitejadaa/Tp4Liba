@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BALL_RADIUS, COURT_WIDTH, FLOOR_Y, LAUNCH, RIM, SKY } from './court';
 import { INITIAL_AIM, launchVelocity } from './aim';
+import { hoopMotionFor, windFor } from './shootout';
 import {
   MAX_FLIGHT_SECONDS,
   STEP_SECONDS,
@@ -320,5 +321,106 @@ describe('simulateShot · el aro móvil', () => {
         }
       }
     }
+  });
+});
+
+describe('la dificultad sube con la racha', () => {
+  /*
+   * Los seis momentos del vaivén contra los que se mide. Quien juega no elige la
+   * fase del aro, así que la dificultad de verdad es cuántas punterías aguantan
+   * **cualquier** momento: o el tiro entra se suelte cuando se suelte, o hay que
+   * cronometrarlo.
+   */
+  const PHASES = [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6];
+
+  /** Porción del espacio de punterías que entra caiga donde caiga el vaivén. */
+  function reliableWindow(streak: number): number {
+    const { amplitude, period } = hoopMotionFor(streak);
+    const wind = windFor(streak, 4);
+    let tried = 0;
+    let always = 0;
+
+    for (let angle = 34; angle <= 86; angle += 4) {
+      for (let p = 30; p <= 100; p += 6) {
+        tried += 1;
+        const entra = PHASES.every(
+          (share) =>
+            simulateShot(launchVelocity({ angle, power: p / 100 }), {
+              wind,
+              hoop: { amplitude, period, phase: share * period },
+            }).result !== 'miss',
+        );
+        if (entra) always += 1;
+      }
+    }
+
+    return always / tried;
+  }
+
+  it('la ventana se achica de punta a punta de la rampa', () => {
+    /*
+     * Es la propiedad que pedía todo esto y la razón de medirla en vez de
+     * confiar en que subir unos números alcanza: la primera versión tenía la
+     * curva **plana** —12% de punterías buenas en la racha 0 y 12% en la 18—
+     * porque el viento corre la ventana pero no la achica.
+     */
+    expect(reliableWindow(24)).toBeLessThan(reliableWindow(0) / 4);
+  });
+
+  it('y baja en cada tramo de la rampa, no de golpe al final', () => {
+    // De a cinco y no de a uno: entre dos rachas vecinas el signo del viento y
+    // la fase del aro mueven el número lo suficiente como para que un tramo
+    // corto sea ruido y no tendencia.
+    const tramos = [0, 5, 10, 15, 20, 25].map(reliableWindow);
+
+    for (let i = 1; i < tramos.length; i += 1) {
+      expect(tramos[i]!).toBeLessThan(tramos[i - 1]!);
+    }
+  });
+
+  it('pero nunca se cierra: siempre hay con qué encestar', () => {
+    /*
+     * Una dificultad que sube hasta volver el juego imposible no es difícil, es
+     * un final. Con el aro al máximo tiene que seguir habiendo punterías que
+     * entren en **cada** momento del vaivén, aunque haya que cronometrarlas.
+     */
+    const { amplitude, period } = hoopMotionFor(40);
+
+    for (const share of PHASES) {
+      let entraron = 0;
+      for (let angle = 40; angle <= 84; angle += 2) {
+        for (let p = 40; p <= 100; p += 4) {
+          const shot = simulateShot(launchVelocity({ angle, power: p / 100 }), {
+            wind: windFor(40, 4),
+            hoop: { amplitude, period, phase: share * period },
+          });
+          if (shot.result !== 'miss') entraron += 1;
+        }
+      }
+      expect(entraron).toBeGreaterThan(5);
+    }
+  });
+
+  it('el viento obliga a rehacer el tiro, y cada vez más', () => {
+    /*
+     * La otra mitad de la dificultad, la que el viento sí aporta: no achica la
+     * ventana, la **corre**, así que el tiro que venía entrando deja de entrar y
+     * hay que volver a calcularlo. Se mide con cuánta corrección de fuerza hace
+     * falta para volver a embocar.
+     */
+    const correction = (streak: number) => {
+      const wind = windFor(streak, 5);
+      for (let delta = 0; delta <= 1; delta += 0.01) {
+        for (const signo of [1, -1]) {
+          const power = INITIAL_AIM.power + signo * delta;
+          if (power < 0 || power > 1) continue;
+          const shot = simulateShot(launchVelocity({ ...INITIAL_AIM, power }), { wind });
+          if (shot.result !== 'miss') return delta;
+        }
+      }
+      return 1;
+    };
+
+    expect(correction(12)).toBeGreaterThan(correction(2));
   });
 });

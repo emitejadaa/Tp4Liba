@@ -208,16 +208,26 @@ cambió de lugar.
   todos, y hay un test que recorre el espacio entero de punterías para que subir la velocidad máxima
   sin subir el cielo lo rompa en vez de volver a esconder la pelota.
 
-  La dificultad sube en dos escalones, y son dos problemas distintos a propósito. El **viento**
-  aparece a la tercera encestada seguida y crece con la racha: sin él el juego se termina cuando
-  alguien encuentra el arrastre que entra, porque repetirlo sale gratis. Se corrige **antes** de
-  tirar, mirando el indicador. Sale del número de tiro y no de `Math.random`, así que dos partidas
+  La dificultad sube con la racha por dos caminos, y son dos problemas distintos a propósito. El
+  **viento** aparece a la tercera encestada y crece hasta la racha veinte: sin él el juego se termina
+  cuando alguien encuentra el arrastre que entra, porque repetirlo sale gratis. Se corrige **antes**
+  de tirar, mirando el indicador. Sale del número de tiro y no de `Math.random`, así que dos partidas
   con los mismos tiros se ven igual.
 
-  El **aro se pone a subir y bajar** al llegar al segundo nivel de fuego, y va tomando más recorrido
-  y más velocidad con la racha. Ése no se corrige apuntando: se corrige eligiendo **cuándo** soltar.
-  El tablero cuelga del aro y se mueve con él; el poste se queda clavado en el piso y el tablero se
-  desliza sobre él, como en un aro regulable de verdad.
+  El **aro se pone a subir y bajar**, y va tomando más recorrido y más velocidad hasta cerca de la
+  racha treinta. Ése no se corrige apuntando: se corrige eligiendo **cuándo** soltar. El tablero
+  cuelga del aro y se mueve con él; el poste se queda clavado en el piso y el tablero se desliza
+  sobre él, como en un aro regulable de verdad.
+
+  Los dos hacen falta, y eso se midió en vez de suponerlo. Contando qué porción del espacio de
+  punterías entra **caiga donde caiga el vaivén** —que es la dificultad de verdad, porque quien juega
+  no elige la fase del aro— el viento solo daba 12,1%, 12,6% y 14,0% en las primeras rachas: como se
+  anuncia, se compensa, así que corre la ventana pero no la achica, y el juego se ponía distinto sin
+  ponerse más difícil. Lo que la achica es el aro moviéndose. Con las dos cosas y la rampa estirada,
+  esa porción baja de 12% a menos de 2% entre la racha 0 y la 25, y hay tests que verifican las tres
+  propiedades que importan: que baje de punta a punta, que baje en cada tramo y no de golpe al final,
+  y que **nunca se cierre**, porque una dificultad que sube hasta volver el juego imposible no es
+  difícil, es un final.
 
   Lo que hace que el aro móvil no rompa la reproducibilidad es que su desfasaje se **congela al
   soltar**: entra como un número más del tiro y de ahí en más el vuelo lo lleva con su propio reloj.

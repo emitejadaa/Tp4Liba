@@ -22,30 +22,37 @@ export { shotPoints } from './physics';
 export const WIND_FROM_STREAK = 2;
 
 /** Viento máximo, en unidades de cancha por segundo al cuadrado. */
-export const MAX_WIND = 230;
+export const MAX_WIND = 300;
 
 /**
  * Racha a partir de la cual el aro se pone a subir y bajar.
  *
- * Es el segundo nivel de fuego, así que la dificultad sube donde ya subía algo:
- * el aro empieza a moverse en el mismo tiro en que el fuego cambia de nivel, y
- * las dos cosas se leen como una sola.
+ * Coincide con la primera encestada que prende el fuego, así que la dificultad
+ * sube donde ya subía algo y las dos cosas se leen como una sola.
  *
- * Llega bastante después del viento a propósito. Son dos problemas distintos: el
- * viento se corrige antes de tirar, mirando el indicador, y el aro móvil se
- * corrige **eligiendo cuándo** soltar. Encimados desde el principio no se
- * aprende ninguno de los dos.
+ * Empezaba mucho más tarde, y midiendo la curva quedó claro que estaba mal. El
+ * viento **no achica la ventana**: como se anuncia, se compensa, y después de
+ * compensarlo el tiro es igual de difícil que antes. Medida la porción del
+ * espacio de punterías que entra caiga donde caiga el vaivén, las primeras
+ * rachas daban 12,1%, 12,6% y 14,0%: o sea que con sólo viento el juego no se
+ * ponía más difícil, se ponía distinto. Lo único que achica la ventana es el aro
+ * moviéndose, así que arranca temprano.
+ *
+ * Las dos cosas siguen siendo dos problemas distintos, y por eso están las dos:
+ * el viento se corrige **antes** de tirar, mirando el indicador, y obliga a
+ * rehacer el tiro anterior; el aro móvil se corrige **eligiendo cuándo** soltar,
+ * y es el que exige precisión.
  */
-export const HOOP_MOVES_FROM_STREAK = 6;
+export const HOOP_MOVES_FROM_STREAK = 3;
 
 /** Cuánto sube y baja el aro como mucho, desde su altura de siempre. */
-export const MAX_HOOP_AMPLITUDE = 38;
+export const MAX_HOOP_AMPLITUDE = 52;
 
 /** Y el ciclo más rápido al que llega, en segundos. */
-export const MIN_HOOP_PERIOD = 1.9;
+export const MIN_HOOP_PERIOD = 1.3;
 
 /** El más lento, que es con el que arranca. */
-export const MAX_HOOP_PERIOD = 4.4;
+export const MAX_HOOP_PERIOD = 4.6;
 
 export type GameState = {
   /** Con qué ángulo y fuerza va a salir el próximo tiro. */
@@ -110,7 +117,7 @@ export type Action =
 export function windFor(streak: number, shotId: number): number {
   if (streak < WIND_FROM_STREAK) return 0;
 
-  const strength = Math.min(MAX_WIND, 60 + (streak - WIND_FROM_STREAK) * 26);
+  const strength = Math.min(MAX_WIND, 40 + (streak - WIND_FROM_STREAK) * 14);
   const side = shotId % 2 === 0 ? 1 : -1;
   // Cuatro intensidades que se van turnando, para que no sean todos iguales.
   const share = 0.55 + ((shotId * 7) % 4) * 0.15;
@@ -126,6 +133,12 @@ export function windFor(streak: number, shotId: number): number {
  * aro **va a estar**, y la velocidad achica la ventana para soltar. Una sola de
  * las dos se aprende en unos tiros; las dos juntas obligan a seguir mirando.
  *
+ * Crece despacio y durante mucho a propósito. Con la escala de antes el aro
+ * llegaba al tope en la racha catorce y de ahí en más el juego no se ponía más
+ * difícil nunca; ahora la rampa se estira hasta cerca de la treinta. Medido: la
+ * porción de punterías que entra caiga donde caiga el vaivén baja de 12% a
+ * menos de 2% a lo largo de esa rampa, y hay un test que lo verifica.
+ *
  * El desfasaje no sale de acá: lo pone la vista con el reloj en el momento de
  * soltar, porque de eso se trata. Con el aro moviéndose, cuándo se suelta es
  * parte del tiro, y si el desfasaje fuera una cuenta fija se podría aprender de
@@ -137,8 +150,8 @@ export function hoopMotionFor(streak: number): { amplitude: number; period: numb
   const over = streak - HOOP_MOVES_FROM_STREAK;
 
   return {
-    amplitude: Math.min(MAX_HOOP_AMPLITUDE, 15 + over * 3),
-    period: Math.max(MIN_HOOP_PERIOD, MAX_HOOP_PERIOD - over * 0.22),
+    amplitude: Math.min(MAX_HOOP_AMPLITUDE, 10 + over * 2),
+    period: Math.max(MIN_HOOP_PERIOD, MAX_HOOP_PERIOD - over * 0.13),
   };
 }
 
