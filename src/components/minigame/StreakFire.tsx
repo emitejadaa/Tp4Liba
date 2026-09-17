@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'motion/react';
 import { streakTier } from '@/lib/minigame/streak';
 import { cn } from '@/lib/cn';
@@ -18,7 +19,7 @@ type StreakFireProps = {
  * transformaciones y opacidad —nunca ancho, alto ni filtros— así que el
  * navegador lo resuelve en la capa de composición sin recalcular layout.
  */
-export function StreakFire({ streak, reducedMotion, className }: StreakFireProps) {
+function StreakFireBase({ streak, reducedMotion, className }: StreakFireProps) {
   const tier = streakTier(streak);
 
   if (tier.level === 0) return null;
@@ -90,3 +91,11 @@ export function StreakFire({ streak, reducedMotion, className }: StreakFireProps
     </span>
   );
 }
+
+/**
+ * Memoizado porque apuntar re-dibuja el juego en cada movimiento del dedo, y el
+ * fuego no tiene nada que ver con la puntería: sus props son la racha y poco
+ * más, así que no hay motivo para volver a armar sus llamas sesenta veces por
+ * segundo mientras se arrastra.
+ */
+export const StreakFire = memo(StreakFireBase);

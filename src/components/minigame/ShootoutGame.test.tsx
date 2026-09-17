@@ -51,10 +51,10 @@ afterEach(() => {
 });
 
 describe('ShootoutGame', () => {
-  it('explica que se apunta arrastrando', () => {
+  it('explica que se apunta arrastrando desde la pelota', () => {
     render(<ShootoutGame />);
     expect(screen.getByRole('heading', { name: 'Tirá al aro' })).toBeInTheDocument();
-    expect(screen.getByText(/Arrastrá en la cancha/)).toBeInTheDocument();
+    expect(screen.getByText(/Arrastrá desde la pelota/)).toBeInTheDocument();
   });
 
   it('arranca con los tres contadores en cero', () => {

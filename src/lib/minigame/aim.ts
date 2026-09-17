@@ -1,16 +1,21 @@
 /**
- * De un arrastre a un tiro.
+ * De un gesto a un tiro.
  *
- * El gesto es el de tirar, no el de una gomera: se arrastra **hacia donde se
- * quiere que vaya la pelota**. Es la convención de todos los juegos de básquet
- * de teléfono y la que sale sola la primera vez, porque el dedo hace el mismo
- * recorrido que va a hacer la pelota. La de gomera —tirar para atrás y soltar—
- * es la de otro género y acá se lee al revés.
+ * El gesto se mide **desde la pelota hasta el dedo**, no desde donde se empezó a
+ * arrastrar. La diferencia es toda: medido desde donde se apretó, el gesto tiene
+ * un ancla invisible —dos dedos en el mismo lugar de la pantalla dan tiros
+ * distintos según dónde arrancaron— y no hay nada que una la mano con una pelota
+ * que está en la otra punta de la cancha. Medido desde la pelota no hay nada
+ * escondido: el dedo **es** la puntería, se ve la banda que los une, y mover el
+ * dedo dos centímetros cambia el tiro dos centímetros, se haya apretado donde se
+ * haya apretado.
  *
- * El arrastre lleva las dos cosas que definen un tiro a la vez: para dónde
- * apunta el dedo es el ángulo, y cuánto se arrastró es la fuerza. Por eso no hay
- * dos controles: hay uno solo que da los dos números, y por eso ningún tiro sale
- * igual a otro.
+ * Para dónde queda el dedo respecto de la pelota es el ángulo, y qué tan lejos
+ * está es la fuerza. Por eso no hay dos controles: hay uno solo que da los dos
+ * números, y por eso ningún tiro sale igual a otro.
+ *
+ * Es el gesto de tirar y no el de una gomera: el dedo va hacia donde uno quiere
+ * que vaya la pelota, no para el lado contrario.
  */
 
 /** Velocidad de salida del tiro más flojo que se puede tirar. */
@@ -20,16 +25,17 @@ export const MIN_SPEED = 520;
 export const MAX_SPEED = 1080;
 
 /**
- * Arrastre mínimo para que cuente como tiro, en unidades de cancha.
+ * Zona muerta alrededor de la pelota, en unidades de cancha.
  *
- * Por debajo es un toque y no un arrastre. Sin este piso, cualquier tap sobre la
- * cancha —o el temblor de un dedo al apoyarlo— saldría como un tiro flojísimo, y
- * un tiro que nadie quiso tirar igual corta la racha.
+ * Es el radio donde el gesto todavía no es un tiro. Es un poco más grande que la
+ * pelota a propósito: así llevar el dedo de vuelta encima de la pelota es la
+ * manera de arrepentirse, y es la que sale sola porque es el único punto de la
+ * cancha que significa algo.
  */
-export const MIN_DRAG = 14;
+export const DEAD_ZONE = 26;
 
-/** Arrastre que da la potencia máxima. Más largo no suma. */
-export const MAX_DRAG = 190;
+/** Distancia a la pelota que da la potencia máxima. Más lejos no suma. */
+export const MAX_PULL = 190;
 
 /** Topes del ángulo, en grados sobre la horizontal. */
 export const MIN_ANGLE = -8;
@@ -56,26 +62,40 @@ export const INITIAL_AIM: Aim = { angle: 63, power: 0.62 };
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 /**
- * Convierte un arrastre en una puntería.
+ * Convierte el tirón —el vector de la pelota al dedo— en una puntería.
  *
- * Devuelve `null` cuando el arrastre fue demasiado corto para ser un tiro: el
- * que llama lo trata como que no pasó nada, así que apoyar el dedo y levantarlo
- * sin mover cancela en vez de tirar.
+ * Devuelve `null` con el dedo dentro de la zona muerta: no hay tiro, y el que
+ * llama lo trata como que no pasó nada.
  *
- * El eje Y del arrastre viene como viene en pantalla, creciendo hacia abajo, así
- * que arrastrar hacia arriba da `dy` negativo y el ángulo se calcula contra su
+ * El eje Y viene como viene en pantalla, creciendo hacia abajo, así que tener el
+ * dedo por encima de la pelota da `dy` negativo y el ángulo se calcula contra su
  * opuesto.
  */
-export function aimFromDrag(dx: number, dy: number): Aim | null {
+export function aimFromPull(dx: number, dy: number): Aim | null {
   const length = Math.hypot(dx, dy);
-  if (length < MIN_DRAG) return null;
+  if (length < DEAD_ZONE) return null;
 
   const raw = (Math.atan2(-dy, dx) * 180) / Math.PI;
 
   return {
     angle: clamp(raw, MIN_ANGLE, MAX_ANGLE),
-    power: clamp((length - MIN_DRAG) / (MAX_DRAG - MIN_DRAG), 0, 1),
+    power: clamp((length - DEAD_ZONE) / (MAX_PULL - DEAD_ZONE), 0, 1),
   };
+}
+
+/**
+ * El camino inverso: dónde cae el tirón de una puntería, respecto de la pelota.
+ *
+ * Con esto se dibuja la banda, y se dibuja desde la puntería **ya recortada** y
+ * no desde donde está el dedo. Es a propósito: cuando el dedo se va más lejos que
+ * el tope o más atrás que la vertical, la banda se planta y muestra el tiro que
+ * de verdad va a salir en vez de seguir al dedo hasta un tiro que no existe.
+ */
+export function pullFor({ angle, power }: Aim): { x: number; y: number } {
+  const length = DEAD_ZONE + clamp(power, 0, 1) * (MAX_PULL - DEAD_ZONE);
+  const radians = (angle * Math.PI) / 180;
+
+  return { x: Math.cos(radians) * length, y: -Math.sin(radians) * length };
 }
 
 /** Velocidad de salida de una puntería. */

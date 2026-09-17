@@ -172,10 +172,20 @@ cambió de lugar.
   mouse.
 - **Los títulos de sección entran girando desde el fondo**, con la etiqueta adelantándose al título.
 - **El minijuego «Tirá al aro» se juega arrastrando**, con el dedo o con el mouse, hacia donde se
-  quiere que vaya la pelota. El arrastre trae los dos números que definen un tiro —para dónde apunta
-  es el ángulo, cuánto se arrastró es la fuerza—, así que no hay dos controles sino un gesto, y no
-  hay dos tiros iguales. Se ve venir con una guía punteada que muestra el arranque del arco y corta
-  antes del aro: es una ayuda para apuntar, no la respuesta.
+  quiere que vaya la pelota. La puntería se mide **desde la pelota hasta el dedo**: para dónde queda
+  el dedo es el ángulo y qué tan lejos está es la fuerza, así que no hay dos controles sino un gesto,
+  y no hay dos tiros iguales.
+
+  Medirlo desde la pelota y no desde donde se apretó es lo que saca del gesto lo único que no se
+  veía. Medido desde donde se apretó, el gesto tenía un ancla invisible —dos dedos en el mismo punto
+  de la pantalla daban tiros distintos según de dónde venían— y nada unía la mano con una pelota que
+  estaba en la otra punta de la cancha. Ahora el dedo **es** la puntería: se ve la banda que lo une
+  con la pelota, la pelota amaga para atrás mientras se carga el tiro, y una guía punteada muestra el
+  arranque del arco y corta antes del aro, porque es una ayuda para apuntar y no la respuesta.
+
+  Apretar no apunta, hay que mover: si no, un click cualquiera sobre la cancha saldría como un tiro
+  que nadie quiso. Y soltar con el dedo encima de la pelota no tira: es la manera de arrepentirse, y
+  se ve dibujada como un círculo punteado alrededor de la pelota.
 
   Lo que pasa después **no está escrito en ningún lado**. La pelota la mueve un simulador
   (`lib/minigame/physics.ts`) que integra gravedad y viento en pasos fijos y resuelve los choques

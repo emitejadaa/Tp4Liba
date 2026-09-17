@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Ball, Hoop } from './Hoop';
 import { Confetti } from './Confetti';
 import { useIsomorphicLayoutEffect } from '@/hooks/useIsomorphicLayoutEffect';
-import { aimFromDrag, launchVelocity, type Aim } from '@/lib/minigame/aim';
+import { DEAD_ZONE, aimFromPull, launchVelocity, pullFor, type Aim } from '@/lib/minigame/aim';
 import { LAUNCH, RIM, RIM_CENTER, VIEW_BOX } from '@/lib/minigame/court';
 import {
   STEP_SECONDS,
@@ -48,6 +48,15 @@ const PREVIEW_SECONDS = 0.34;
 /** Cuánto tarda la pelota en volver a su lugar después de un tiro. */
 const RESET_MS = 420;
 
+/**
+ * Cuánto hay que mover el dedo para que el gesto se arme.
+ *
+ * Apretar no apunta: hace falta mover. Sin esto, un click cualquiera sobre la
+ * cancha —enfocarla para jugar con el teclado, por ejemplo— saldría como un tiro
+ * a la puntería de donde se apretó, que es un tiro que nadie quiso tirar.
+ */
+const ARM_DISTANCE = 6;
+
 type CourtProps = {
   aim: Aim;
   wind: number;
@@ -73,8 +82,13 @@ export function Court({
 }: CourtProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const ballRef = useRef<SVGGElement>(null);
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
-  const [dragging, setDragging] = useState(false);
+  /*
+   * El gesto en curso. `from` es sólo para saber si ya se movió lo suficiente
+   * como para armarlo; la puntería no sale de ahí, sale de dónde está el dedo
+   * ahora respecto de la pelota.
+   */
+  const gesture = useRef<{ from: { x: number; y: number }; armed: boolean } | null>(null);
+  const [pulling, setPulling] = useState(false);
 
   /*
    * Las devoluciones y la puntería viven en una ref porque las lee el bucle, que
@@ -206,55 +220,78 @@ export function Court({
     return { x: point.x, y: point.y };
   }, []);
 
+  /** La puntería que corresponde a tener el dedo en este punto de la cancha. */
+  const aimAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const point = toCourt(clientX, clientY);
+      return aimFromPull(point.x - LAUNCH.x, point.y - LAUNCH.y);
+    },
+    [toCourt],
+  );
+
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
       if (shooting) return;
-      // La captura es lo que hace que el arrastre siga funcionando cuando el
-      // dedo se va de la cancha, que en un teléfono pasa todo el tiempo.
+      // La captura es lo que hace que el gesto siga vivo cuando el dedo se va de
+      // la cancha, que en un teléfono pasa todo el tiempo.
       event.currentTarget.setPointerCapture(event.pointerId);
-      dragStart.current = toCourt(event.clientX, event.clientY);
-      setDragging(true);
+      gesture.current = { from: toCourt(event.clientX, event.clientY), armed: false };
     },
     [shooting, toCourt],
   );
 
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
-      const start = dragStart.current;
-      if (!start) return;
+      const current = gesture.current;
+      if (!current) return;
 
-      const now = toCourt(event.clientX, event.clientY);
-      const next = aimFromDrag(now.x - start.x, now.y - start.y);
+      if (!current.armed) {
+        const now = toCourt(event.clientX, event.clientY);
+        if (Math.hypot(now.x - current.from.x, now.y - current.from.y) < ARM_DISTANCE) return;
+        current.armed = true;
+      }
+
+      const next = aimAt(event.clientX, event.clientY);
+      setPulling(Boolean(next));
       if (next) onAim(next);
     },
-    [onAim, toCourt],
+    [aimAt, onAim, toCourt],
   );
 
   const onPointerUp = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
-      const start = dragStart.current;
-      dragStart.current = null;
-      setDragging(false);
-      if (!start) return;
+      const current = gesture.current;
+      gesture.current = null;
+      setPulling(false);
+      if (!current?.armed) return;
 
-      const now = toCourt(event.clientX, event.clientY);
-      const released = aimFromDrag(now.x - start.x, now.y - start.y);
-
-      // La puntería viaja con el tiro. Leerla del estado sería leer la del
-      // `pointermove` anterior si React todavía no procesó el último, y en una
-      // máquina cargada eso sale como un tiro más flojo del que se apuntó.
-      // Un arrastre demasiado corto no es un tiro: apoyar el dedo y levantarlo
-      // sin mover cancela, que es como se sale de un tiro del que uno se
-      // arrepintió.
+      /*
+       * La puntería viaja con el tiro. Leerla del estado sería leer la del
+       * `pointermove` anterior cuando React todavía no procesó el último, y en
+       * una máquina cargada eso sale como un tiro distinto del que se apuntó.
+       *
+       * Soltar con el dedo encima de la pelota no tira: es la manera de
+       * arrepentirse de un tiro que ya se estaba apuntando.
+       */
+      const released = aimAt(event.clientX, event.clientY);
       if (released) onShoot(released);
     },
-    [onShoot, toCourt],
+    [aimAt, onShoot],
   );
 
   const velocity = launchVelocity(aim);
   const guide = previewPath(velocity, { wind }, PREVIEW_SECONDS, PREVIEW_POINTS);
   const scored = lastResult === 'in' || lastResult === 'perfect';
   const confetti = lastResult ? confettiCount(lastResult) : 0;
+
+  /*
+   * El tirón: adónde llega el gesto, medido desde la pelota. De acá salen la
+   * banda y el amague, que son lo que hace que apuntar se vea. Sin ellos el
+   * gesto pasaba entero en la cabeza de quien juega: se apretaba en el vacío, la
+   * pelota estaba en la otra punta, y lo único que cambiaba en pantalla era la
+   * opacidad de unos puntitos.
+   */
+  const pull = pullFor(aim);
 
   return (
     <svg
@@ -287,21 +324,72 @@ export function Court({
               key={index}
               cx={point.x}
               cy={point.y}
-              r={2.6 - index * 0.15}
+              r={(pulling ? 3 : 2.4) - index * 0.15}
               fill="#F97316"
-              opacity={(dragging ? 0.85 : 0.5) * (1 - index / (PREVIEW_POINTS + 2))}
+              opacity={(pulling ? 0.95 : 0.42) * (1 - index / (PREVIEW_POINTS + 2))}
             />
           ))}
         </g>
       ) : null}
 
+      {/*
+        La banda que une la pelota con el dedo. Es el gesto hecho dibujo: sale de
+        la pelota, va para donde va a salir el tiro y mide lo que mide la fuerza.
+        Se dibuja desde la puntería ya recortada, así que cuando el dedo se pasa
+        del tope la banda se planta y muestra el tiro que de verdad va a salir.
+      */}
+      {pulling && !shooting ? (
+        <g aria-hidden="true" data-testid="banda">
+          <path
+            d={`M${LAUNCH.x} ${LAUNCH.y}l${pull.x} ${pull.y}`}
+            stroke="#F97316"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            opacity={0.5}
+          />
+          <circle
+            cx={LAUNCH.x + pull.x}
+            cy={LAUNCH.y + pull.y}
+            r={5}
+            fill="#F97316"
+            opacity={0.9}
+          />
+          {/* El borde de la zona muerta: adentro no hay tiro, y volver acá es
+              la manera de arrepentirse. */}
+          <circle
+            cx={LAUNCH.x}
+            cy={LAUNCH.y}
+            r={DEAD_ZONE}
+            stroke="#F97316"
+            strokeWidth={1}
+            strokeDasharray="4 5"
+            opacity={0.3}
+          />
+        </g>
+      ) : null}
+
       <g ref={ballRef} data-testid="ball" style={{ willChange: 'transform' }}>
         {/*
-          El flote en reposo va en un grupo aparte y lo mueve CSS. Si estuviera en
-          el mismo nodo que la posición, el bucle le pisaría la transformación en
-          cada cuadro y no se vería nunca.
+          El flote en reposo y el amague van en un grupo aparte, movidos por CSS.
+          Si estuvieran en el mismo nodo que la posición, el bucle del vuelo les
+          pisaría la transformación en cada cuadro y no se verían nunca.
+
+          El amague es la pelota hundiéndose un poco para el lado contrario al
+          tiro mientras se apunta, como quien carga el brazo. Es chico —ocho
+          unidades a fuerza máxima— porque lo que tiene que hacer es que el gesto
+          se sienta cargado, no tapar la pelota.
         */}
-        <g className={shooting || reducedMotion ? undefined : 'ball-idle'}>
+        <g
+          className={shooting || reducedMotion || pulling ? undefined : 'ball-idle'}
+          style={
+            pulling && !reducedMotion
+              ? {
+                  transform: `translate(${-pull.x * 0.045}px, ${-pull.y * 0.045}px) scale(${1 - aim.power * 0.08})`,
+                  transition: 'transform 90ms ease-out',
+                }
+              : undefined
+          }
+        >
           <Ball />
         </g>
       </g>

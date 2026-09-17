@@ -28,11 +28,10 @@ const POWER_STEP = 0.03;
 /**
  * Minijuego «Tirá al aro».
  *
- * Se apunta arrastrando: con el dedo o con el mouse, desde cualquier punto de la
- * cancha y hacia donde se quiere que vaya la pelota. El arrastre trae los dos
- * números que definen un tiro —para dónde apunta es el ángulo, cuánto se
- * arrastró es la fuerza— así que no hay dos controles sino un gesto, y no hay
- * dos tiros iguales.
+ * Se apunta arrastrando, con el dedo o con el mouse. La puntería se mide desde
+ * la pelota hasta el dedo: para dónde queda el dedo es el ángulo y qué tan lejos
+ * está es la fuerza, así que no hay dos controles sino un gesto, y no hay dos
+ * tiros iguales.
  *
  * Lo que pasa después no está escrito en ningún lado: la pelota la mueve el
  * simulador de `lib/minigame/physics.ts`, que integra gravedad y viento y
@@ -101,10 +100,10 @@ export function ShootoutGame() {
         <p className="text-orange text-[13px] font-bold tracking-[0.14em] uppercase">Minijuego</p>
         <h3 className="text-[40px] leading-none font-bold">Tirá al aro</h3>
         <p className="text-muted max-w-[460px] text-[17px] leading-[1.6]">
-          Arrastrá en la cancha hacia donde querés que vaya la pelota:{' '}
+          Arrastrá desde la pelota hacia donde querés que vaya:{' '}
           <strong className="text-soft font-bold">para dónde</strong> es el ángulo y{' '}
-          <strong className="text-soft font-bold">cuánto</strong> es la fuerza. Entra limpia y son
-          tres.
+          <strong className="text-soft font-bold">qué tan lejos</strong> es la fuerza. Entra limpia
+          y son tres.
         </p>
 
         <div className="mt-3 w-full">
