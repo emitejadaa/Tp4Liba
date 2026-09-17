@@ -6,7 +6,7 @@ import { Ball, Hoop } from './Hoop';
 import { Confetti } from './Confetti';
 import { useIsomorphicLayoutEffect } from '@/hooks/useIsomorphicLayoutEffect';
 import { aimFromDrag, launchVelocity, type Aim } from '@/lib/minigame/aim';
-import { COURT_HEIGHT, COURT_WIDTH, LAUNCH, RIM, RIM_CENTER } from '@/lib/minigame/court';
+import { LAUNCH, RIM, RIM_CENTER, VIEW_BOX } from '@/lib/minigame/court';
 import {
   STEP_SECONDS,
   advanceShot,
@@ -22,10 +22,13 @@ import { confettiCount, shotPoints } from '@/lib/minigame/shootout';
 /**
  * La cancha: donde se apunta, se tira y se mira volar la pelota.
  *
- * Es una sola SVG con `viewBox="0 0 460 300"`, las mismas unidades en las que
- * piensa el simulador. Eso hace que no haya conversión en ningún lado: el
- * simulador dice que la pelota está en (322, 88) y eso se escribe tal cual. La
- * SVG se encarga de que en un teléfono todo mida la mitad, tiro incluido.
+ * Es una sola SVG en las mismas unidades en las que piensa el simulador. Eso
+ * hace que no haya conversión en ningún lado: el simulador dice que la pelota
+ * está en (326, 88) y eso se escribe tal cual. La SVG se encarga de que en un
+ * teléfono todo mida la mitad, tiro incluido.
+ *
+ * El marco no es la cancha: arriba lleva cielo, porque la pelota sube bastante
+ * más que el aro y un tiro del que se ve sólo la mitad no se puede corregir.
  *
  * ## Por qué la pelota no está en el estado de React
  *
@@ -256,7 +259,7 @@ export function Court({
   return (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${COURT_WIDTH} ${COURT_HEIGHT}`}
+      viewBox={VIEW_BOX}
       fill="none"
       data-testid="court"
       onPointerDown={onPointerDown}

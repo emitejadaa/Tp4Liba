@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BALL_RADIUS, COURT_WIDTH, FLOOR_Y, LAUNCH, RIM } from './court';
+import { BALL_RADIUS, COURT_WIDTH, FLOOR_Y, LAUNCH, RIM, SKY } from './court';
 import { INITIAL_AIM, launchVelocity } from './aim';
 import {
   MAX_FLIGHT_SECONDS,
@@ -63,12 +63,33 @@ describe('simulateShot', () => {
   });
 
   it('la pelota nunca se va de la cancha', () => {
-    for (let angle = 0; angle <= 92; angle += 6) {
+    for (let angle = 0; angle <= 90; angle += 6) {
       for (let power = 0; power <= 1; power += 0.15) {
         const { body } = shoot(angle, power);
         expect(body.x).toBeGreaterThanOrEqual(BALL_RADIUS - 0.5);
         expect(body.x).toBeLessThanOrEqual(COURT_WIDTH - BALL_RADIUS + 0.5);
         expect(body.y).toBeLessThanOrEqual(FLOOR_Y - BALL_RADIUS + 0.5);
+      }
+    }
+  });
+
+  it('ningún tiro se sale del marco por arriba', () => {
+    /*
+     * Es la razón de que la cancha lleve cielo. Sin él, un tiro con fuerza se
+     * iba por el borde de arriba, desaparecía y volvía a aparecer de la nada un
+     * rato después; y no era un caso raro, le pasaba a ochenta y nueve de los
+     * tiros que entran. Un tiro del que no se ve la mitad no se puede corregir.
+     *
+     * Se recorre el espacio entero de punterías y con los dos extremos del
+     * viento, así que subir la velocidad máxima sin subir el cielo rompe este
+     * test en vez de volver a esconder la pelota.
+     */
+    for (let angle = -8; angle <= 90; angle += 1) {
+      for (let p = 0; p <= 100; p += 2) {
+        for (const wind of [-230, 0, 230]) {
+          const { apexY } = trace(angle, p / 100, wind);
+          expect(apexY - BALL_RADIUS).toBeGreaterThanOrEqual(-SKY);
+        }
       }
     }
   });

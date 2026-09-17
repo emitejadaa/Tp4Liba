@@ -190,6 +190,14 @@ cambió de lugar.
   tres cuerpos están en el mismo plano y cada rebote es el que se ve; de paso, se ve el arco, que de
   frente es lo único que no se distingue entre un tiro corto y uno largo.
 
+  El marco lleva **cielo** arriba de la cancha, y no es decoración: la pelota sube bastante más que
+  el aro, así que sin él un tiro con fuerza se salía por el borde de arriba, desaparecía y volvía a
+  aparecer de la nada un rato después. No era un caso raro —le pasaba a ochenta y nueve de los tiros
+  que entran— y un tiro del que no se ve la mitad no se puede corregir, que es justo lo que hay que
+  hacer con el que falló. Son las ciento cuarenta unidades que necesita el tiro que más sube de
+  todos, y hay un test que recorre el espacio entero de punterías para que subir la velocidad máxima
+  sin subir el cielo lo rompa en vez de volver a esconder la pelota.
+
   El **viento** aparece a la tercera encestada seguida y crece con la racha. Sin él el juego se
   termina cuando alguien encuentra el arrastre que entra, porque repetirlo sale gratis. Sale del
   número de tiro y no de `Math.random`, así que dos partidas con los mismos tiros se ven igual.

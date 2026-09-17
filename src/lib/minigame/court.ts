@@ -29,6 +29,31 @@
 export const COURT_WIDTH = 460;
 export const COURT_HEIGHT = 300;
 
+/**
+ * Cielo: cuánto se dibuja por encima de la cancha.
+ *
+ * La cancha llega hasta el aro y nada más, pero la pelota sube bastante más
+ * arriba que el aro. Sin cielo, un tiro con fuerza se salía por el borde de
+ * arriba y desaparecía en el aire —ochenta y nueve de los tiros que **entran** lo
+ * hacían— y volvía a aparecer de la nada un rato después. Un tiro del que no se
+ * ve la mitad no se puede corregir, que es justamente lo que hay que hacer con
+ * el que falló.
+ *
+ * Son ciento cuarenta unidades porque el tiro que más sube de todos —vertical y
+ * a fondo— llega a −115, y la pelota mide quince de radio. O sea: alcanza para
+ * cualquier tiro posible, no para casi todos. El test que lo verifica recorre el
+ * espacio entero de punterías, así que subir la velocidad máxima sin subir el
+ * cielo lo rompe en vez de volver a esconder la pelota.
+ *
+ * No cambia nada del juego: el aro, el piso y el lanzamiento siguen en las
+ * mismas coordenadas. Lo único que pasa es que arriba hay aire, que es lo que
+ * hay arriba de un aro en una cancha.
+ */
+export const SKY = 140;
+
+/** El `viewBox` de la cancha, cielo incluido. */
+export const VIEW_BOX = `0 ${-SKY} ${COURT_WIDTH} ${COURT_HEIGHT + SKY}`;
+
 /** Radio de la pelota. Contra los 52 del aro deja la misma luz que en serio. */
 export const BALL_RADIUS = 15;
 
